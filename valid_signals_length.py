@@ -20,7 +20,7 @@ DIR_NUM = '30/'
 
 valid_patients = []
 base_dir = 'physionet.org/files/mimic3wdb/1.0/'
-for rec in RECORDS:
+for rec in tqdm(RECORDS):
     pid = rec[0]
     valid_segments = []
     for sid in rec[1::]:
