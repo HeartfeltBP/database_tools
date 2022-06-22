@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# PhysioNet (HIPAA)
+physionet.org/
+MIMIC-III-RECORDS/
