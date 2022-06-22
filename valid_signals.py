@@ -14,22 +14,18 @@ from wfdb import rdheader
 # Only these lines need to be modified.
 
 OUTFILE = 'RECORDS_30_2'
-RECORDS = pd.read_csv('MIMIC-III-RECORDS/RECORDS_30', names=['ID'])
-RECORDS = np.array([int(i.strip('/')) for i in RECORDS['ID']])
+RECORDS = np.array([int(i.strip('/')) for i in pd.read_csv('MIMIC-III-RECORDS/RECORDS_30', names=['ID'])['ID']])
 DIR_NUM = '30/'
 
 valid_patients = []
 base_dir = 'physionet.org/files/mimic3wdb/1.0/'
 for pid in tqdm(RECORDS):
     path = base_dir + DIR_NUM + str(pid) + f'/{pid}_layout'
-    try:
-        runcmd('wget -r -np https://' + path + '.hea')
-        hea = rdheader(path)
-        if ('PLETH' in hea.sig_name) & ('ABP' in hea.sig_name):
-            valid_patients.append(pid)
-        runcmd('rm ' + path)
-    except:
-        continue
+    runcmd('wget -r -np https://' + path + '.hea')
+    hea = rdheader(path)
+    if ('PLETH' in hea.sig_name) & ('ABP' in hea.sig_name):
+        valid_patients.append(pid)
+    runcmd('rm ' + path)
 
 valid_patients = [[i] for i in valid_patients]
 with open(f'MIMIC-III-RECORDS/{OUTFILE}.csv', 'w') as f:

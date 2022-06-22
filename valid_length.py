@@ -1,3 +1,9 @@
+"""
+Author:      Cameron Johnson
+Modified:    06/21/2022
+Description: Generate csv of all patients ids, segments ids for all
+             segments at least 10 min in length (75,000 samples).         
+"""
 import csv
 import numpy as np
 import pandas as pd
