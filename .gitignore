@@ -131,3 +131,6 @@ dmypy.json
 # PhysioNet (HIPAA)
 physionet.org/
 MIMIC-III-RECORDS/
+
+# vscode
+.vscode/

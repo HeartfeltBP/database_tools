@@ -3,25 +3,24 @@ Author:      Cameron Johnson
 Modified:    06/21/2022
 Description: Utility methods.
 """
-
 import subprocess
 import numpy as np
 import pandas as pd
+
 
 def runcmd(cmd, verbose=False):
     """
     Runs the provided terminal command.
     """
-    process = subprocess.Popen(
-        cmd,
-        stdout = subprocess.PIPE,
-        stderr = subprocess.PIPE,
-        text = True,
-        shell = True)
+    process = subprocess.Popen(cmd,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,
+                               text=True,
+                               shell=True)
     std_out, std_err = process.communicate()
     if verbose:
         print(std_out.strip(), std_err)
-    pass
+
 
 def median_absolute_deviation(x):
     """
@@ -33,7 +32,6 @@ def median_absolute_deviation(x):
 
 
 def hampel(ts, window_size=5, n=3, imputation=False):
-
     """
     Median absolute deviation (MAD) outlier in Time Series
     :param ts: a pandas Series object representing the timeseries
@@ -78,4 +76,3 @@ def hampel(ts, window_size=5, n=3, imputation=False):
         return ts_cleaned
 
     return outlier_indices
-    
