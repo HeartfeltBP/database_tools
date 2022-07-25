@@ -111,10 +111,14 @@ class SignalProcessor():
         return next(g, True) and not next(g, False)
 
     def _valid_abp_window(self, sig, flat_line_length=2):
-        for i in range(len(sig)):
-            seg = sig[i:i+flat_line_length]
-            if self._all_equal(seg):
-                return False
+        peaks = ppg_findpeaks(sig, sampling_rate=self._fs)['PPG_Peaks']
+        for i in peaks:
+            try:
+                seg = sig[i - flat_line_length:i + flat_line_length]
+                if self._all_equal(seg):
+                    return False
+            except IndexError:
+                continue
         return True
 
     def _valid_windows(self, pleth_windows, abp_windows):
