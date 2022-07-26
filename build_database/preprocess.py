@@ -20,13 +20,16 @@ class SignalProcessor():
             raise ValueError('pleth and abp waveforms are not the same length')
 
         pleth_f = self._filter_pleth(self._pleth)
+        self._abp[np.argwhere(np.isnan(self._abp))] = 0
 
         pleth_windows = self._window(pleth_f, self._window_size)
         abp_windows = self._window(self._abp, self._window_size)
 
-        valid_windows = self._valid_windows(pleth_windows, abp_windows)
-        # ...
-        return abp_windows, valid_windows
+        valid_data = self._valid_windows(pleth_windows, abp_windows)
+        valid_pleth = valid_data[0]
+        valid_abp = valid_data[1]
+        n_samples = valid_pleth.shape[0]
+        return valid_pleth, valid_abp, n_samples
 
     def _filter_pleth(self, sig):
         scaler = StandardScaler()
@@ -47,6 +50,8 @@ class SignalProcessor():
 
     def _valid_pleth_window(self,
                             sig,
+                            peaks,
+                            valleys,
                             th1=-1.5,
                             th2=1.5,
                             dvc_th=1.0,
@@ -82,14 +87,11 @@ class SignalProcessor():
             return False
 
         # Motion artifact detection
-        peaks = ppg_findpeaks(sig, sampling_rate=self._fs)['PPG_Peaks']
         n_peaks = len(peaks)
         if (n_peaks < (bpm_th1 / (60 / self._window_size))) | (n_peaks > (bpm_th2 / (60 / self._window_size))):
             return False
 
         # Waveform instability detection
-        valleys = ppg_findpeaks(flip_signal(sig), sampling_rate=self._fs)['PPG_Peaks']
-
         if peaks[0] > valleys[0]:  # Is the first index a peak or valley?
             x = valleys
             y = peaks
@@ -110,8 +112,10 @@ class SignalProcessor():
         g = groupby(iterable)
         return next(g, True) and not next(g, False)
 
-    def _valid_abp_window(self, sig, flat_line_length=2):
-        peaks = ppg_findpeaks(sig, sampling_rate=self._fs)['PPG_Peaks']
+    def _valid_abp_window(self,
+                          sig,
+                          peaks,
+                          flat_line_length=2):
         for i in peaks:
             try:
                 seg = sig[i - flat_line_length:i + flat_line_length]
@@ -121,19 +125,34 @@ class SignalProcessor():
                 continue
         return True
 
-    def _valid_windows(self, pleth_windows, abp_windows):
-        valid_idx = []
-        for i, (pleth_win, abp_win) in enumerate(zip(pleth_windows, abp_windows)):
-            if (self._valid_pleth_window(pleth_win,
-                                         th1=-1.5,
-                                         th2=1.5,
-                                         dvc_th=1.0,
-                                         bpm_th1=30,
-                                         bpm_th2=220) & 
-                self._valid_abp_window(abp_win)):
+    def _calculate_bp(self, pleth_win, peaks, valleys):
+        sbp = np.mean(pleth_win[peaks])
+        dbp = np.mean(pleth_win[valleys])
+        return sbp, dbp
 
-                valid_idx.append(i)
-        
-        valid_pleth_windows = pleth_windows[valid_idx, :]
-        valid_abp_windows = abp_windows[valid_idx, :]
-        return (valid_pleth_windows, valid_abp_windows)
+    def _valid_windows(self, pleth_windows, abp_windows):
+        valid_pleth_windows = []
+        valid_abp_values = []
+        for (pleth_win, abp_win) in zip(pleth_windows, abp_windows):
+            try:
+                pleth_peaks = ppg_findpeaks(pleth_win, sampling_rate=self._fs)['PPG_Peaks']
+                pleth_valleys = ppg_findpeaks(flip_signal(pleth_win), sampling_rate=self._fs)['PPG_Peaks']
+                abp_peaks = ppg_findpeaks(abp_win, sampling_rate=self._fs)['PPG_Peaks']
+                abp_valleys = ppg_findpeaks(flip_signal(abp_win), sampling_rate=self._fs)['PPG_Peaks']
+                if (self._valid_pleth_window(pleth_win,
+                                            pleth_peaks,
+                                            pleth_valleys,
+                                            th1=-1.5,
+                                            th2=1.5,
+                                            dvc_th=1.0,
+                                            bpm_th1=30,
+                                            bpm_th2=220) & 
+                    self._valid_abp_window(abp_win,
+                                        abp_peaks,
+                                        flat_line_length=3)):
+                    valid_pleth_windows.append(pleth_win)
+                    sbp, dbp = self._calculate_bp(abp_win, abp_peaks, abp_valleys)
+                    valid_abp_values.append([sbp, dbp])
+            except:
+                continue
+        return (np.array(valid_pleth_windows), np.array(valid_abp_values))

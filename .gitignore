@@ -128,9 +128,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# PhysioNet (HIPAA)
+# Exclude data
 physionet.org/
-MIMIC-III-RECORDS/
+data/
+records/
 
 # vscode
 .vscode/

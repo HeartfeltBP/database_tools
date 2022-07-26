@@ -1,26 +1,49 @@
-from operator import index
 import os
 import numpy as np
 import pandas as pd
-from preprocess import SignalProcessor
 from wfdb import rdheader, rdrecord
 from shutil import rmtree
-from sklearn.utils import indexable
 from tqdm.notebook import tqdm
+from .preprocess import SignalProcessor
+from .compile import compile_data, compile_patient
 
 
 class ExtractData():
-    def __init__(self, records_path, last_record, max_records):
+    def __init__(self,
+                 records_path,
+                 sample_count_data_path,
+                 pleth_data_path,
+                 abp_data_path,
+                 max_records,
+                 data_dir='physionet.org/files/mimic3wdb/1.0/'):
         self._records_path = records_path
-        self._last_record = last_record
+        self._sample_count_data_path = sample_count_data_path
+        self._pleth_data_path = pleth_data_path
+        self._abp_data_path = abp_data_path
         self._max_records = max_records
-        self._data_dir = 'physionet.org/files/mimic3wdb/1.0/'
+        self._data_dir = data_dir
 
     def run(self):
+        last_record = self._get_last_record(self._sample_count_data_path)
         records = pd.read_csv(self._records_path, names=['patient dir'])
-        for folder in tqdm(records['patient dir']):
-            self._extract(folder) 
+        if last_record != 'test':
+            start = records['patient dir'].str.find(last_record)
+            start = start.index[start != -1][0] + 1
+        else:
+            start = 0
+
+        num_processed = 0
+        for folder in tqdm(records['patient dir'][start::]):
+            if num_processed == self._max_records:
+                break
+            self._extract(folder)
+            num_processed += 1
         return
+
+    def _get_last_record(self, path):
+        with open(path, 'r') as f:
+            last_record = f.readlines()[-1].split(',')[1]
+        return last_record
 
     def _extract(self, folder):
         """
@@ -31,15 +54,29 @@ class ExtractData():
             -Does a segment have PLETH & ABP?
         3. 
         """
+        mrn = folder.split('/')[1]
         layout = self._get_layout(folder)
         if layout and self._patient_has_pleth_abp(layout):
             master_header = self._get_master_header(folder)
             if master_header:
                 segments = self._valid_segments(folder, master_header)
+                print(f'Processing data for {folder}')
                 for seg in segments:
                     pleth, abp = self._get_sigs(folder, seg)
-                    sig_processor = SignalProcessor(pleth, abp, fs=125)
-                    # ...
+                    if (len(pleth) > 0) & (len(abp) > 0):
+                        sig_processor = SignalProcessor(pleth, abp, fs=125)
+                        valid_pleth, valid_abp, n_samples = sig_processor.run()
+                        print(mrn, valid_pleth.shape, valid_abp.shape, n_samples)
+                        compile_data(self._sample_count_data_path,
+                                     self._pleth_data_path,
+                                     self._abp_data_path,
+                                     mrn,
+                                     valid_pleth,
+                                     valid_abp,
+                                     n_samples)
+        if 'n_samples' not in locals():
+            compile_patient(self._sample_count_data_path, mrn)
+
         rmtree(f'physionet.org/files/mimic3wdb/1.0/{folder}', ignore_errors=True)
         return
 
