@@ -4,11 +4,11 @@ import pandas as pd
 from wfdb import rdheader, rdrecord
 from shutil import rmtree
 from tqdm.notebook import tqdm
-from .preprocess import SignalProcessor
+from database_tools import SignalProcessor
 from .compile import compile_data, compile_patient
 
 
-class ExtractData():
+class BuildDatabase():
     def __init__(self,
                  records_path,
                  sample_count_data_path,
