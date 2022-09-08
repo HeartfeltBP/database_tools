@@ -1,8 +1,7 @@
-import pandas as pd
 import os
+import pandas as pd
 
-def build_empty_database(repo_dir):
-    os.chdir(repo_dir)
+def build_empty_database():
     if not os.path.exists('data/'):
         os.mkdir('data/')
 
