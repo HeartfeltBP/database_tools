@@ -4,36 +4,38 @@ import pandas as pd
 from wfdb import rdheader, rdrecord
 from shutil import rmtree
 from tqdm.notebook import tqdm
-from database_tools import SignalProcessor
-from .compile import compile_data, compile_patient
+from .SignalProcessor import SignalProcessor
+from .compile import append_patient, append_sample_count
 
 
 class BuildDatabase():
     def __init__(self,
                  records_path,
-                 sample_count_data_path,
-                 pleth_data_path,
-                 abp_data_path,
+                 data_profile_csv,
+                 pleth_csv,
+                 abp_csv,
                  max_records,
                  data_dir='physionet.org/files/mimic3wdb/1.0/'):
         self._records_path = records_path
-        self._sample_count_data_path = sample_count_data_path
-        self._pleth_data_path = pleth_data_path
-        self._abp_data_path = abp_data_path
+        self._data_profile_csv = data_profile_csv
+        self._pleth_csv = pleth_csv
+        self._abp_csv = abp_csv
         self._max_records = max_records
         self._data_dir = data_dir
 
     def run(self):
-        last_record = self._get_last_record(self._sample_count_data_path)
-        records = pd.read_csv(self._records_path, names=['patient dir'])
+        # Load records.
+        records = pd.read_csv(self._records_path, names=['patient_dir'])
+
+        # Get last record (MRN) added to data profile.
+        last_record = self._get_last_record(self._data_profile_csv)
+
+        start = 0  # Start idx is 0 unless database is partially built.
         if last_record != 'test':
-            start = records['patient dir'].str.find(last_record)
-            start = start.index[start != -1][0] + 1
-        else:
-            start = 0
+            start = records.index[records['patient_dir'] == last_record].tolist()[0]
 
         num_processed = 0
-        for folder in tqdm(records['patient dir'][start::]):
+        for folder in tqdm(records['patient_dir'][start::]):
             if num_processed == self._max_records:
                 break
             self._extract(folder)
@@ -41,8 +43,8 @@ class BuildDatabase():
         return
 
     def _get_last_record(self, path):
-        with open(path, 'r') as f:
-            last_record = f.readlines()[-1].split(',')[1]
+        df = pd.read_csv(path, index_col='index')
+        last_record = df['mrn'].iloc[-1]
         return last_record
 
     def _extract(self, folder):
@@ -54,6 +56,8 @@ class BuildDatabase():
             -Does a segment have PLETH & ABP?
         3. 
         """
+        valid_segs = False  # Is set to true if a patient has valid segments.
+
         mrn = folder.split('/')[1]
         layout = self._get_layout(folder)
         if layout and self._patient_has_pleth_abp(layout):
@@ -66,16 +70,19 @@ class BuildDatabase():
                     if (len(pleth) > 0) & (len(abp) > 0):
                         sig_processor = SignalProcessor(pleth, abp, fs=125)
                         valid_pleth, valid_abp, n_samples = sig_processor.run()
-                        print(mrn, valid_pleth.shape, valid_abp.shape, n_samples)
-                        compile_data(self._sample_count_data_path,
-                                     self._pleth_data_path,
-                                     self._abp_data_path,
-                                     mrn,
-                                     valid_pleth,
-                                     valid_abp,
-                                     n_samples)
-        if 'n_samples' not in locals():
-            compile_patient(self._sample_count_data_path, mrn)
+                        if n_samples > 0:
+                            append_patient(self._data_profile_csv,
+                                           self._pleth_csv,
+                                           self._abp_csv,
+                                           mrn,
+                                           valid_pleth,
+                                           valid_abp,
+                                           n_samples)
+                            valid_segs = True
+        if valid_segs:
+            append_sample_count(self._data_profile_csv, mrn, n_samples)
+        if not valid_segs:
+            append_sample_count(self._data_profile_csv, mrn, 0)
 
         rmtree(f'physionet.org/files/mimic3wdb/1.0/{folder}', ignore_errors=True)
         return

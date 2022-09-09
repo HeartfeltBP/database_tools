@@ -14,7 +14,7 @@ def build_empty_database():
 
     path = 'data/pleth_data.csv'
     if not os.path.exists(path):
-        columns = ['sample_id'] + [f'sig_{i}' for i in range(625)]
+        columns = ['sample_id'] + [f'sig_{str(i).zfill(3)}' for i in range(625)]
         df = pd.DataFrame(columns=columns)
         df.loc[0] = ['test'] + [0 for i in range(625)]
         df.index.name = 'index'

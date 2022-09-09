@@ -126,6 +126,7 @@ class SignalProcessor():
         return True
 
     def _calculate_bp(self, pleth_win, peaks, valleys):
+        print(pleth_win[peaks])
         sbp = np.mean(pleth_win[peaks])
         dbp = np.mean(pleth_win[valleys])
         return sbp, dbp
@@ -140,16 +141,16 @@ class SignalProcessor():
                 abp_peaks = ppg_findpeaks(abp_win, sampling_rate=self._fs)['PPG_Peaks']
                 abp_valleys = ppg_findpeaks(flip_signal(abp_win), sampling_rate=self._fs)['PPG_Peaks']
                 if (self._valid_pleth_window(pleth_win,
-                                            pleth_peaks,
-                                            pleth_valleys,
-                                            th1=-1.5,
-                                            th2=1.5,
-                                            dvc_th=1.0,
-                                            bpm_th1=30,
-                                            bpm_th2=220) & 
+                                             pleth_peaks,
+                                             pleth_valleys,
+                                             th1=-1.5,
+                                             th2=1.5,
+                                             dvc_th=1.0,
+                                             bpm_th1=30,
+                                             bpm_th2=220) & 
                     self._valid_abp_window(abp_win,
-                                        abp_peaks,
-                                        flat_line_length=3)):
+                                           abp_peaks,
+                                           flat_line_length=3)):
                     valid_pleth_windows.append(pleth_win)
                     sbp, dbp = self._calculate_bp(abp_win, abp_peaks, abp_valleys)
                     valid_abp_values.append([sbp, dbp])

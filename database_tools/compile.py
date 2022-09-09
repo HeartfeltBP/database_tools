@@ -1,49 +1,40 @@
 import pandas as pd
 from csv import writer
 
-def compile_data(sample_count_data_path,
-                 pleth_data_path,
-                 abp_data_path,
-                 mrn,
-                 pleth,
-                 abp,
-                 n_samples):
+def append_patient(data_profile_csv,
+                   pleth_csv,
+                   abp_csv,
+                   mrn,
+                   pleth,
+                   abp,
+                   n_samples):
 
-    with open(pleth_data_path, 'r') as f:
-        last_pleth_idx = int(f.readlines()[-1].split(',')[0])
-    
-    with open(abp_data_path, 'r') as f:
-        last_abp_idx = int(f.readlines()[-1].split(',')[0])
+    data_profile_df = pd.read_csv(data_profile_csv, index_col='index')
+    pleth_df = pd.read_csv(pleth_csv, index_col='index')
+    abp_df = pd.read_csv(abp_csv, index_col='index')
 
-    if last_pleth_idx == last_abp_idx:
-        start_idx = last_pleth_idx + 1
-    else:
-        raise ValueError('pleth and abp data end at different indices')
+    if pleth_df['sample_id'].iloc[-1] != abp_df['sample_id'].iloc[-1]:
+        raise ValueError('Files for \'pleth\' and \'abp\' end at different samples.')
 
-    with open(sample_count_data_path, 'r') as f:
-        last_patient_idx = int(f.readlines()[-1].split(',')[0])
-
-    with open(sample_count_data_path, 'a') as f:
+    start_idx = pleth_df.index.to_list()[-1] + 1
+    with open(abp_csv, 'a') as f:
         w = writer(f)
-        w.writerow([last_patient_idx + 1, mrn, n_samples])
+        for i, idx in enumerate(range(start_idx, start_idx + n_samples)):
+            sample_id = mrn + '_' + str(i)
+            w.writerow([idx, sample_id, abp[i, 0], abp[i, 1]])
 
-    if n_samples > 0:
-        with open(abp_data_path, 'a') as f:
-            w = writer(f)
-            for i, idx in enumerate(range(start_idx, start_idx + n_samples)):
-                sample_id = mrn + str(n_samples)
-                w.writerow([idx, sample_id, abp[i, 0], abp[i, 1]])
-
-        with open(pleth_data_path, 'a') as f:
-            w = writer(f)
-            for i, idx in enumerate(range(start_idx, start_idx + n_samples)):
-                sample_id = mrn + str(n_samples)
-                w.writerow([idx, sample_id] + pleth[i, :])
-
-def compile_patient(sample_count_data_path, mrn):
-    with open(sample_count_data_path, 'r') as f:
-        last_patient_idx = int(f.readlines()[-1].split(',')[0])
-
-    with open(sample_count_data_path, 'a') as f:
+    with open(pleth_csv, 'a') as f:
         w = writer(f)
-        w.writerow([last_patient_idx, mrn, 0])
+        for i, idx in enumerate(range(start_idx, start_idx + n_samples)):
+            sample_id = mrn + '_' + str(i)
+            w.writerow([idx, sample_id] + list(pleth[i, :]))
+    return
+
+def append_sample_count(data_profile_csv, mrn, n_samples):
+    with open(data_profile_csv, 'r') as f:
+        idx = int(f.readlines()[-1].split(',')[0]) + 1
+    with open(data_profile_csv, 'a') as f:
+        w = writer(f)
+        row = [idx, mrn, n_samples]
+        w.writerow(row)    
+    return
