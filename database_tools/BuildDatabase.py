@@ -77,13 +77,12 @@ class BuildDatabase():
                             valid_abp = np.vstack([valid_abp, seg_abp])
                             n_samples += seg_n_samples
         if n_samples > 0:
-            append_patient(self._data_profile_csv,
-                            self._pleth_csv,
-                            self._abp_csv,
-                            mrn,
-                            valid_pleth,
-                            valid_abp,
-                            n_samples)
+            append_patient(self._pleth_csv,
+                           self._abp_csv,
+                           mrn,
+                           valid_pleth,
+                           valid_abp,
+                           n_samples)
             append_sample_count(self._data_profile_csv, mrn, n_samples)
         else:
             append_sample_count(self._data_profile_csv, mrn, 0)

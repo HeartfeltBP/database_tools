@@ -1,15 +1,13 @@
 import pandas as pd
 from csv import writer
 
-def append_patient(data_profile_csv,
-                   pleth_csv,
+def append_patient(pleth_csv,
                    abp_csv,
                    mrn,
                    pleth,
                    abp,
                    n_samples):
 
-    data_profile_df = pd.read_csv(data_profile_csv, index_col='index')
     pleth_df = pd.read_csv(pleth_csv, index_col='index')
     abp_df = pd.read_csv(abp_csv, index_col='index')
 
