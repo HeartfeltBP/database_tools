@@ -28,11 +28,11 @@ class BuildDatabase():
         records = pd.read_csv(self._records_path, names=['patient_dir'])
 
         # Get last record (MRN) added to data profile.
-        last_record = self._get_last_record(self._data_profile_csv)
+        last_record = str(self._get_last_record(self._data_profile_csv))
 
         start = 0  # Start idx is 0 unless database is partially built.
         if last_record != 'test':
-            start = records.index[records['patient_dir'] == last_record].tolist()[0]
+            start = records.index[records['patient_dir'].str.contains(last_record)].tolist()[0] + 1
 
         num_processed = 0
         for folder in tqdm(records['patient_dir'][start::]):
@@ -56,7 +56,9 @@ class BuildDatabase():
             -Does a segment have PLETH & ABP?
         3. 
         """
-        valid_segs = False  # Is set to true if a patient has valid segments.
+        valid_pleth = np.empty((0, 625))
+        valid_abp = np.empty((0, 2))
+        n_samples = 0
 
         mrn = folder.split('/')[1]
         layout = self._get_layout(folder)
@@ -69,19 +71,21 @@ class BuildDatabase():
                     pleth, abp = self._get_sigs(folder, seg)
                     if (len(pleth) > 0) & (len(abp) > 0):
                         sig_processor = SignalProcessor(pleth, abp, fs=125)
-                        valid_pleth, valid_abp, n_samples = sig_processor.run()
-                        if n_samples > 0:
-                            append_patient(self._data_profile_csv,
-                                           self._pleth_csv,
-                                           self._abp_csv,
-                                           mrn,
-                                           valid_pleth,
-                                           valid_abp,
-                                           n_samples)
-                            valid_segs = True
-        if valid_segs:
+                        seg_pleth, seg_abp, seg_n_samples = sig_processor.run()
+                        if seg_n_samples > 0:
+                            valid_pleth = np.vstack([valid_pleth, seg_pleth])
+                            valid_abp = np.vstack([valid_abp, seg_abp])
+                            n_samples += seg_n_samples
+        if n_samples > 0:
+            append_patient(self._data_profile_csv,
+                            self._pleth_csv,
+                            self._abp_csv,
+                            mrn,
+                            valid_pleth,
+                            valid_abp,
+                            n_samples)
             append_sample_count(self._data_profile_csv, mrn, n_samples)
-        if not valid_segs:
+        else:
             append_sample_count(self._data_profile_csv, mrn, 0)
 
         rmtree(f'physionet.org/files/mimic3wdb/1.0/{folder}', ignore_errors=True)

@@ -21,7 +21,7 @@ def append_patient(data_profile_csv,
         w = writer(f)
         for i, idx in enumerate(range(start_idx, start_idx + n_samples)):
             sample_id = mrn + '_' + str(i)
-            w.writerow([idx, sample_id, abp[i, 0], abp[i, 1]])
+            w.writerow([idx, sample_id] + [abp[i, 0], abp[i, 1]])
 
     with open(pleth_csv, 'a') as f:
         w = writer(f)
