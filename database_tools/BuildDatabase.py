@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 from wfdb import rdheader, rdrecord
 from shutil import rmtree
-from tqdm.notebook import tqdm
 from .SignalProcessor import SignalProcessor
 from .compile import append_patient, append_sample_count
 
@@ -35,7 +34,7 @@ class BuildDatabase():
             start = records.index[records['patient_dir'].str.contains(last_record)].tolist()[0] + 1
 
         num_processed = 0
-        for folder in tqdm(records['patient_dir'][start::]):
+        for folder in records['patient_dir'][start::]:
             if num_processed == self._max_records:
                 break
             self._extract(folder)
