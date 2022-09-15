@@ -6,7 +6,7 @@ from scipy.signal import butter, cheby2, sosfiltfilt, medfilt
 from heartpy.peakdetection import make_windows
 from neurokit2.ppg import ppg_findpeaks
 from heartpy.preprocessing import flip_signal
-from utils.compile import window_example
+from database_tools.utils.compile import window_example
 
 
 class SignalProcessor():

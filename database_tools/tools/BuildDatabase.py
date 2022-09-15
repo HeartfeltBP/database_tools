@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from wfdb import rdheader, rdrecord
 from shutil import rmtree
-from utils.compile import append_sample_count, write_dataset
+from database_tools.utils.compile import append_sample_count, write_dataset
 from .SignalProcessor import SignalProcessor
 
 
@@ -40,11 +40,12 @@ class BuildDatabase():
                 break
 
             file_name = self._output_dir + f'mimic3_{file_number}.tfrecords'
-            self._extract(folder, tfrecord_index=file_number)
+            self._extract(folder, file_name=file_number)
 
             num_processed += 1
-            if os.path.getsize(file_name) > self._max_file_size:
-                file_number += 1
+            if os.path.exists(file_name):
+                if os.path.getsize(file_name) > self._max_file_size:
+                    file_number += 1
         return
 
     def _get_last_record(self, path):
