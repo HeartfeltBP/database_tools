@@ -1,3 +1,5 @@
+import os
+import glob
 from csv import writer
 import tensorflow as tf
 from typing import List
@@ -18,7 +20,7 @@ def window_example(sig, sbp, dbp, mrn):
         'sig': _float_array_feature(sig),
         'sbp': _float_feature(sbp),
         'dbp': _float_feature(dbp),
-        'mrn': _int64_feature(mrn),
+        'mrn': _int64_feature(int(mrn)),
     }
     return tf.train.Example(features=tf.train.Features(feature=feature))
 
@@ -26,6 +28,7 @@ def write_dataset(file_name, examples: List[tf.train.Example]):
     with tf.io.TFRecordWriter(file_name) as w:
         for tf_example in examples:
             w.write(tf_example.SerializeToString())
+    return
 
 def _parse_window_function(example_proto):
     window_feature_description = {
@@ -38,7 +41,8 @@ def _parse_window_function(example_proto):
 
 def read_dataset(path, n_cores=1):
     # path is location of TFRecords files.
-    dataset = tf.data.TFRecordDataset(filenames=[],
+    filenames = [file for file in glob.glob(f'{path}*.tfrecords')]
+    dataset = tf.data.TFRecordDataset(filenames=filenames,
                                       compression_type=None,
                                       buffer_size=None,
                                       num_parallel_reads=n_cores)

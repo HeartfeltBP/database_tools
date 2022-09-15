@@ -40,7 +40,7 @@ class BuildDatabase():
                 break
 
             file_name = self._output_dir + f'mimic3_{file_number}.tfrecords'
-            self._extract(folder, file_name=file_number)
+            self._extract(folder, file_name=file_name)
 
             num_processed += 1
             if os.path.exists(file_name):
@@ -137,6 +137,7 @@ class BuildDatabase():
                             valid_samples += seg_valid_samples
                             n_samples += seg_n_samples
         if n_samples > 0:
+            print(f'Writing {n_samples} samples to {file_name}.')
             write_dataset(file_name=file_name,
                           examples=valid_samples)
             append_sample_count(self._data_profile_csv, mrn, n_samples)

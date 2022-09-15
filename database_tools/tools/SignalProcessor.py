@@ -154,7 +154,10 @@ class SignalProcessor():
                                            abp_valleys,
                                            flat_line_length=3)):
                     sbp, dbp = self._calculate_bp(abp_win, abp_peaks, abp_valleys)
-                    example = window_example(pleth_win, sbp, dbp, self._mrn)
+                    example = window_example(pleth_win.astype(np.float64),
+                                             sbp.astype(np.float64),
+                                             dbp.astype(np.float64),
+                                             self._mrn)
                     valid_samples.append(example)
             except:
                 continue
