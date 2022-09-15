@@ -1,5 +1,3 @@
-import numpy as np
-import pandas as pd
 from csv import writer
 import tensorflow as tf
 from typing import List
