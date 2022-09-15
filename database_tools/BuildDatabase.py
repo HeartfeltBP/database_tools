@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 from wfdb import rdheader, rdrecord
 from shutil import rmtree
+from utils.compile import append_sample_count, write_dataset
 from .SignalProcessor import SignalProcessor
-from .compile import append_patient, append_sample_count
 
 
 class BuildDatabase():
@@ -14,12 +14,14 @@ class BuildDatabase():
                  pleth_csv,
                  abp_csv,
                  max_records,
+                 file_length=1000,
                  data_dir='physionet.org/files/mimic3wdb/1.0/'):
         self._records_path = records_path
         self._data_profile_csv = data_profile_csv
         self._pleth_csv = pleth_csv
         self._abp_csv = abp_csv
         self._max_records = max_records
+        self._file_length = file_length
         self._data_dir = data_dir
 
     def run(self):
@@ -34,11 +36,14 @@ class BuildDatabase():
             start = records.index[records['patient_dir'].str.contains(last_record)].tolist()[0] + 1
 
         num_processed = 0
+        file_number = 0
         for folder in records['patient_dir'][start::]:
             if num_processed == self._max_records:
                 break
-            self._extract(folder)
+            self._extract(folder, tfrecord_index=file_number)
             num_processed += 1
+            if num_processed == self._file_length:
+                file_number += 1
         return
 
     def _get_last_record(self, path):
@@ -46,7 +51,7 @@ class BuildDatabase():
         last_record = df['mrn'].iloc[-1]
         return last_record
 
-    def _extract(self, folder):
+    def _extract(self, folder, tfrecord_index):
         """
         1. Download patient layout.
             -Is PLETH & ABP present in record?
@@ -55,8 +60,7 @@ class BuildDatabase():
             -Does a segment have PLETH & ABP?
         3. 
         """
-        valid_pleth = np.empty((0, 625))
-        valid_abp = np.empty((0, 2))
+        valid_samples = []
         n_samples = 0
 
         mrn = folder.split('/')[1]
@@ -69,19 +73,14 @@ class BuildDatabase():
                 for seg in segments:
                     pleth, abp = self._get_sigs(folder, seg)
                     if (len(pleth) > 0) & (len(abp) > 0):
-                        sig_processor = SignalProcessor(pleth, abp, fs=125)
-                        seg_pleth, seg_abp, seg_n_samples = sig_processor.run()
+                        sig_processor = SignalProcessor(pleth, abp, mrn, fs=125)
+                        seg_valid_samples, seg_n_samples = sig_processor.run()
                         if seg_n_samples > 0:
-                            valid_pleth = np.vstack([valid_pleth, seg_pleth])
-                            valid_abp = np.vstack([valid_abp, seg_abp])
+                            valid_samples += seg_valid_samples
                             n_samples += seg_n_samples
         if n_samples > 0:
-            append_patient(self._pleth_csv,
-                           self._abp_csv,
-                           mrn,
-                           valid_pleth,
-                           valid_abp,
-                           n_samples)
+            write_dataset(file_name=f'mimic3_{tfrecord_index}.tfrecords',
+                          examples=valid_samples)
             append_sample_count(self._data_profile_csv, mrn, n_samples)
         else:
             append_sample_count(self._data_profile_csv, mrn, 0)

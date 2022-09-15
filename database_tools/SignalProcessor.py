@@ -2,16 +2,18 @@ import numpy as np
 from itertools import groupby
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import indexable
-from scipy.signal import butter, cheby2, sosfilt, sosfiltfilt, medfilt
+from scipy.signal import butter, cheby2, sosfiltfilt, medfilt
 from heartpy.peakdetection import make_windows
 from neurokit2.ppg import ppg_findpeaks
 from heartpy.preprocessing import flip_signal
+from utils.compile import window_example
 
 
 class SignalProcessor():
-    def __init__(self, pleth, abp, fs=125, window_size=5):
+    def __init__(self, pleth, abp, mrn, fs=125, window_size=5):
         self._pleth = pleth
         self._abp = abp
+        self._mrn = mrn
         self._fs = fs
         self._window_size = window_size
 
@@ -25,11 +27,9 @@ class SignalProcessor():
         pleth_windows = self._window(pleth_f, self._window_size)
         abp_windows = self._window(self._abp, self._window_size)
 
-        valid_data = self._valid_windows(pleth_windows, abp_windows)
-        valid_pleth = valid_data[0]
-        valid_abp = valid_data[1]
-        n_samples = valid_pleth.shape[0]
-        return valid_pleth, valid_abp, n_samples
+        valid_samples = self._valid_windows(pleth_windows, abp_windows)
+        n_samples = len(valid_samples)
+        return valid_samples, n_samples
 
     def _filter_pleth(self, sig):
         scaler = StandardScaler()
@@ -134,9 +134,7 @@ class SignalProcessor():
         return sbp, dbp
 
     def _valid_windows(self, pleth_windows, abp_windows):
-        valid_pleth_windows = []
-        valid_abp_values = []
-        i = 1
+        valid_samples = []
         for (pleth_win, abp_win) in zip(pleth_windows, abp_windows):
             try:
                 pleth_peaks = ppg_findpeaks(pleth_win, sampling_rate=self._fs)['PPG_Peaks']
@@ -155,9 +153,9 @@ class SignalProcessor():
                                            abp_peaks,
                                            abp_valleys,
                                            flat_line_length=3)):
-                    valid_pleth_windows.append(pleth_win)
                     sbp, dbp = self._calculate_bp(abp_win, abp_peaks, abp_valleys)
-                    valid_abp_values.append([sbp, dbp])
+                    example = window_example(pleth_win, sbp, dbp, self._mrn)
+                    valid_samples.append(example)
             except:
                 continue
-        return (np.array(valid_pleth_windows), np.array(valid_abp_values))
+        return valid_samples
