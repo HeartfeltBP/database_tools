@@ -1,4 +1,5 @@
 import os
+import glob
 import numpy as np
 import pandas as pd
 from wfdb import rdheader, rdrecord
@@ -33,8 +34,14 @@ class BuildDatabase():
         if last_record != 'test':
             start = records.index[records['patient_dir'].str.contains(last_record)].tolist()[0] + 1
 
+        filenames = [file for file in glob.glob(f'{self._output_dir}*.tfrecords')]
+        if len(filenames) > 0:
+            nums = [int(s.strip(self._output_dir + 'mimic3_').strip('.tfrecords')) for s in filenames]
+            file_number = max(nums)
+        else:
+            file_number = 0
+
         num_processed = 0
-        file_number = 0
         for folder in records['patient_dir'][start::]:
             if num_processed == self._max_records:
                 break
