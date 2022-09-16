@@ -13,13 +13,11 @@ class BuildDatabase():
                  records_path,
                  data_profile_csv,
                  max_records,
-                 max_file_size,  # In MB
                  data_dir='physionet.org/files/mimic3wdb/1.0/',
                  output_dir='data/mimic3/'):
         self._records_path = records_path
         self._data_profile_csv = data_profile_csv
         self._max_records = max_records
-        self._max_file_size = max_file_size * (10 ** 6)
         self._data_dir = data_dir
         self._output_dir = output_dir
 
