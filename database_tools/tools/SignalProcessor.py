@@ -134,7 +134,6 @@ class SignalProcessor():
 
     def _valid_windows(self, pleth_windows, abp_windows):
         valid_samples = []
-        v = False
         for (pleth_win, abp_win) in zip(pleth_windows, abp_windows):
             try:
                 pleth_peaks = ppg_findpeaks(pleth_win, sampling_rate=self._fs)['PPG_Peaks']
@@ -154,15 +153,12 @@ class SignalProcessor():
                                            abp_valleys,
                                            flat_line_length=3)):
                     sbp, dbp = self._calculate_bp(abp_win, abp_peaks, abp_valleys)
-                    v = True
+                    example = window_example(list(pleth_win),
+                                             float(sbp),
+                                             float(dbp),
+                                             int(self._mrn)
+                                            )
+                    valid_samples.append(example)
             except:
                 continue
-            if v:
-                example = window_example(list(pleth_win),
-                                         float(sbp),
-                                         float(dbp),
-                                         int(self._mrn)
-                                        )
-                valid_samples.append(example)
-                v = False
         return valid_samples
