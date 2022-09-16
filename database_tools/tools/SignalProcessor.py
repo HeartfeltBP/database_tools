@@ -73,7 +73,6 @@ class SignalProcessor():
         bpm_th2 : int
             Upper bpm threshold.
         """
-        # TODO:
 
         # Pulse interference detection
         if (sig < th1).any() | (sig > th2).any():
@@ -135,6 +134,7 @@ class SignalProcessor():
 
     def _valid_windows(self, pleth_windows, abp_windows):
         valid_samples = []
+        v = False
         for (pleth_win, abp_win) in zip(pleth_windows, abp_windows):
             try:
                 pleth_peaks = ppg_findpeaks(pleth_win, sampling_rate=self._fs)['PPG_Peaks']
@@ -154,11 +154,15 @@ class SignalProcessor():
                                            abp_valleys,
                                            flat_line_length=3)):
                     sbp, dbp = self._calculate_bp(abp_win, abp_peaks, abp_valleys)
-                    example = window_example(pleth_win.astype(np.float64),
-                                             sbp.astype(np.float64),
-                                             dbp.astype(np.float64),
-                                             self._mrn)
-                    valid_samples.append(example)
+                    v = True
             except:
                 continue
+            if v:
+                example = window_example(list(pleth_win),
+                                         float(sbp),
+                                         float(dbp),
+                                         int(self._mrn)
+                                        )
+                valid_samples.append(example)
+                v = False
         return valid_samples

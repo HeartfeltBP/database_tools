@@ -1,7 +1,7 @@
 import os
 from database_tools.tools import BuildDatabase
 
-repo_dir = '/home/camhpj/database_tools/'
+repo_dir = '/home/cam/Documents/database_tools/'
 os.chdir(repo_dir)
 
 worker = BuildDatabase(records_path='data/RECORDS-adults',
