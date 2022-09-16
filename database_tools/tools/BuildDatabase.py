@@ -37,7 +37,7 @@ class BuildDatabase():
         filenames = [file for file in glob.glob(f'{self._output_dir}*.tfrecords')]
         if len(filenames) > 0:
             nums = [int(s.strip(self._output_dir + 'mimic3_').strip('.tfrecords')) for s in filenames]
-            file_number = max(nums)
+            file_number = max(nums) + 1
         else:
             file_number = 0
 
@@ -51,8 +51,7 @@ class BuildDatabase():
 
             num_processed += 1
             if os.path.exists(file_name):
-                if os.path.getsize(file_name) > self._max_file_size:
-                    file_number += 1
+                file_number += 1
         return
 
     def _get_last_record(self, path):
