@@ -1,61 +1,57 @@
 import os
-import glob
+import json
+import random
 import numpy as np
 import pandas as pd
 from wfdb import rdheader, rdrecord
-from shutil import rmtree
-from database_tools.utils.compile import append_sample_count, write_dataset
 from .SignalProcessor import SignalProcessor
 
 
 class BuildDatabase():
     def __init__(self,
                  records_path,
-                 data_profile_csv,
-                 max_records,
+                 used_records_path,
+                 samples_per_file,
+                 max_samples,
                  data_dir='physionet.org/files/mimic3wdb/1.0/',
                  output_dir='data/mimic3/'):
         self._records_path = records_path
-        self._data_profile_csv = data_profile_csv
-        self._max_records = max_records
+        self._used_records_path = used_records_path
+        self._samples_per_file = samples_per_file
+        self._max_samples = max_samples
         self._data_dir = data_dir
         self._output_dir = output_dir
-
+    
     def run(self):
-        # Load records.
-        records = pd.read_csv(self._records_path, names=['patient_dir'])
+        total_samples = 0
+        file_number = 0
+        num_samples = 0
+        sample_list = []
 
-        # Get last record (MRN) added to data profile.
-        last_record = str(self._get_last_record(self._data_profile_csv))
+        for sample in self._sample_generator():
+            sample_list.append(json.dumps(sample))
+            total_samples += 1
+            num_samples += 1
 
-        start = 0  # Start idx is 0 unless database is partially built.
-        if last_record != 'test':
-            start = records.index[records['patient_dir'].str.contains(last_record)].tolist()[0] + 1
-
-        filenames = [file for file in glob.glob(f'{self._output_dir}*.tfrecords')]
-        if len(filenames) > 0:
-            nums = [int(s.strip(self._output_dir + 'mimic3_').strip('.tfrecords')) for s in filenames]
-            file_number = max(nums) + 1
-        else:
-            file_number = 0
-
-        num_processed = 0
-        for folder in records['patient_dir'][start::]:
-            if num_processed == self._max_records:
-                break
-
-            file_name = self._output_dir + f'mimic3_{file_number}.tfrecords'
-            self._extract(folder, file_name=file_name)
-
-            num_processed += 1
-            if os.path.exists(file_name):
+            if num_samples == self._samples_per_file:
+                self._write(sample_list, file_number)
                 file_number += 1
+                num_samples = 0
+                sample_list = []
+                if total_samples >= self._max_samples:
+                    break
         return
 
-    def _get_last_record(self, path):
-        df = pd.read_csv(path, index_col='index')
-        last_record = df['mrn'].iloc[-1]
-        return last_record
+    def _get_used_records(self, path):
+        used_records = set(pd.read_csv(path, index_col=['index'])['folder'])
+        return used_records
+
+    def _mrn_generator(self, path, used_records):
+        records = set(pd.read_csv(path, names=['records'])['records'])
+        records = list(records.difference(used_records))
+        random.shuffle(records)
+        for folder in records:
+            yield folder
 
     def _download(self, path):
         response = os.system(f'wget -q -r -np {path}')
@@ -113,40 +109,28 @@ class BuildDatabase():
             return pleth, abp
         return None, None
 
-    def _extract(self, folder, file_name):
-        """
-        1. Download patient layout.
-            -Is PLETH & ABP present in record?
-        2. Download patient master header?
-            -Is a segment longer than 10 minutes?
-            -Does a segment have PLETH & ABP?
-        3. 
-        """
-        valid_samples = []
-        n_samples = 0
+    def _sample_generator(self):
+        used_records = self._get_used_records(self._used_records_path)
+        for folder in self._mrn_generator(self._records_path, used_records):
+            mrn = folder.split('/')[1]
+            layout = self._get_layout(folder)
+            if layout and self._patient_has_pleth_abp(layout):
+                master_header = self._get_master_header(folder)
+                if master_header:
+                    segments = self._valid_segments(folder, master_header)
+                    print(f'Processing data for {folder}')
+                    sig_processor = SignalProcessor(segments, folder, mrn, self._data_dir, fs=125, window_size=5)
+                    for sample in sig_processor.sample_generator():
+                        yield sample
+            used_records.add(folder)
+            df = pd.DataFrame(used_records, columns=['folder'])
+            df.index.names = ['index']
+            df.to_csv(self._used_records_path)
 
-        mrn = folder.split('/')[1]
-        layout = self._get_layout(folder)
-        if layout and self._patient_has_pleth_abp(layout):
-            master_header = self._get_master_header(folder)
-            if master_header:
-                segments = self._valid_segments(folder, master_header)
-                print(f'Processing data for {folder}')
-                for seg in segments:
-                    pleth, abp = self._get_sigs(folder, seg)
-                    if (len(pleth) > 0) & (len(abp) > 0):
-                        sig_processor = SignalProcessor(pleth, abp, mrn, fs=125)
-                        seg_valid_samples, seg_n_samples = sig_processor.run()
-                        if seg_n_samples > 0:
-                            valid_samples += seg_valid_samples
-                            n_samples += seg_n_samples
-        if n_samples > 0:
-            print(f'Writing {n_samples} samples to {file_name}.')
-            write_dataset(file_name=file_name,
-                          examples=valid_samples)
-            append_sample_count(self._data_profile_csv, mrn, n_samples)
-        else:
-            append_sample_count(self._data_profile_csv, mrn, 0)
-
-        rmtree(f'physionet.org/files/mimic3wdb/1.0/{folder}', ignore_errors=True)
+    def _write(self, samples, file_number):
+        file_name = f'mimic3_{str(file_number).zfill(8)}.json'
+        print(f'Writing data to {file_name}')
+        with open(self._output_dir + file_name, 'w') as f:
+            for s in samples:
+                json.dump(s, f)
         return
