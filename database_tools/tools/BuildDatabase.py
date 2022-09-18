@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from shutil import rmtree
 from wfdb import rdheader, rdrecord
-from database_tools.tools import SignalProcessor
+from database_tools.tools.SignalProcessor import SignalProcessor
 
 
 class BuildDatabase():
