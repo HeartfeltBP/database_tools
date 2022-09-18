@@ -8,7 +8,6 @@ from scipy.signal import butter, cheby2, sosfiltfilt, medfilt
 from heartpy.peakdetection import make_windows
 from neurokit2.ppg import ppg_findpeaks
 from heartpy.preprocessing import flip_signal
-from database_tools.utils.compile import window_example
 
 
 class SignalProcessor():
@@ -174,10 +173,10 @@ class SignalProcessor():
                                            abp_valleys,
                                            flat_line_length=3)):
                     # sbp, dbp = self._calculate_bp(abp_win, abp_peaks, abp_valleys)
-                    sample = (
-                        list(pleth_win),
-                        list(abp_win),
-                        str(self._mrn) + f'_{str(self._sample_index).zfill(8)}',
+                    sample = dict(
+                        pleth=list(pleth_win),
+                        abp=list(abp_win),
+                        sample_id=str(self._mrn) + f'_{str(self._sample_index).zfill(8)}',
                     )
                     valid_samples.append(sample)
                     self._sample_index += 1

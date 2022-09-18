@@ -3,41 +3,42 @@ import json
 import random
 import numpy as np
 import pandas as pd
+from shutil import rmtree
 from wfdb import rdheader, rdrecord
-from .SignalProcessor import SignalProcessor
+from database_tools.tools import SignalProcessor
 
 
 class BuildDatabase():
     def __init__(self,
-                 records_path,
-                 used_records_path,
+                 output_dir,
                  samples_per_file,
                  max_samples,
-                 data_dir='physionet.org/files/mimic3wdb/1.0/',
-                 output_dir='data/mimic3/'):
-        self._records_path = records_path
-        self._used_records_path = used_records_path
+                 data_dir='physionet.org/files/mimic3wdb/1.0/'):
+        self._output_dir = output_dir
+        self._records_path = self._output_dir + 'RECORDS-adults'
+        self._used_records_path = self._output_dir + 'used_records.csv'
+
         self._samples_per_file = samples_per_file
         self._max_samples = max_samples
         self._data_dir = data_dir
-        self._output_dir = output_dir
     
     def run(self):
         total_samples = 0
         file_number = 0
         num_samples = 0
-        sample_list = []
+        output = ''
 
         for sample in self._sample_generator():
-            sample_list.append(json.dumps(sample))
+            output += json.dumps(sample)
             total_samples += 1
             num_samples += 1
 
             if num_samples == self._samples_per_file:
-                self._write(sample_list, file_number)
+                file_name = self._output_dir + f'mimic3_{str(file_number).zfill(8)}.json'
+                self._write(output, file_name)
                 file_number += 1
                 num_samples = 0
-                sample_list = []
+                output = ''
                 if total_samples >= self._max_samples:
                     break
         return
@@ -68,6 +69,8 @@ class BuildDatabase():
         return None
 
     def _patient_has_pleth_abp(self, layout):
+        if layout is None:
+            return False
         if ('PLETH' in layout.sig_name) & ('ABP' in layout.sig_name):
             return True
         return False
@@ -126,11 +129,9 @@ class BuildDatabase():
             df = pd.DataFrame(used_records, columns=['folder'])
             df.index.names = ['index']
             df.to_csv(self._used_records_path)
+            rmtree(f'physionet.org/files/mimic3wdb/1.0/{folder}', ignore_errors=True)
 
-    def _write(self, samples, file_number):
-        file_name = f'mimic3_{str(file_number).zfill(8)}.json'
+    def _write(self, output, file_name):
         print(f'Writing data to {file_name}')
-        with open(self._output_dir + file_name, 'w') as f:
-            for s in samples:
-                json.dump(s, f)
-        return
+        with open(file_name, 'w') as f:
+            f.write(output)
