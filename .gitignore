@@ -136,4 +136,4 @@ records/
 # vscode
 .vscode/
 
-data/
+data-*/
