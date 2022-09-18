@@ -15,8 +15,7 @@ def build_empty_database(records_path='https://physionet.org/files/mimic3wdb/1.0
     df.to_csv(used_records_path)
 
     os.mkdir(path + 'records')
-    os.chdir(path + 'records')
-    os.mkdir('train')
-    os.mkdir('val')
-    os.mkdir('test')
+    os.mkdir(path + 'records/' + 'train')
+    os.mkdir(path + 'records/' + 'val')
+    os.mkdir(path + 'records/' + 'test')
     return path
