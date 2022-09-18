@@ -1,35 +1,55 @@
+import os
 import numpy as np
 from itertools import groupby
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import indexable
-from scipy.signal import butter, cheby2, sosfilt, sosfiltfilt, medfilt
+from wfdb import rdrecord
+from scipy.signal import butter, cheby2, sosfiltfilt, medfilt
 from heartpy.peakdetection import make_windows
 from neurokit2.ppg import ppg_findpeaks
 from heartpy.preprocessing import flip_signal
 
 
 class SignalProcessor():
-    def __init__(self, pleth, abp, fs=125, window_size=5):
-        self._pleth = pleth
-        self._abp = abp
+    def __init__(self, segments, folder, mrn, data_dir, fs=125, window_size=5):
+        self._segments = segments
+        self._folder = folder
+        self._mrn = mrn
+        self._data_dir = data_dir
         self._fs = fs
         self._window_size = window_size
+        self._sample_index = 0
 
-    def run(self):
-        if indexable(self._pleth, self._abp) is None:
-            raise ValueError('pleth and abp waveforms are not the same length')
+    def sample_generator(self):
+        for seg in self._segments:
+            pleth, abp = self._get_sigs(self._folder, seg)
+            if indexable(pleth, abp) is None:
+                raise ValueError('pleth and abp waveforms are not the same length')
 
-        pleth_f = self._filter_pleth(self._pleth)
-        self._abp[np.argwhere(np.isnan(self._abp))] = 0
+            pleth_f = self._filter_pleth(pleth)
+            abp[np.argwhere(np.isnan(abp))] = 0
 
-        pleth_windows = self._window(pleth_f, self._window_size)
-        abp_windows = self._window(self._abp, self._window_size)
+            pleth_windows = self._window(pleth_f, self._window_size)
+            abp_windows = self._window(abp, self._window_size)
 
-        valid_data = self._valid_windows(pleth_windows, abp_windows)
-        valid_pleth = valid_data[0]
-        valid_abp = valid_data[1]
-        n_samples = valid_pleth.shape[0]
-        return valid_pleth, valid_abp, n_samples
+            valid_samples = self._valid_windows(pleth_windows, abp_windows)
+            for sample in valid_samples:
+                yield sample
+
+    def _download(self, path):
+        response = os.system(f'wget -q -r -np {path}')
+        return response
+
+    def _get_sigs(self, folder, seg):
+        path = self._data_dir + folder + seg
+        response = self._download(path + '.dat')
+        if response == 0:
+            rec = rdrecord(path)
+            signals = rec.sig_name
+            pleth = rec.p_signal[:, signals.index('PLETH')].astype(np.float64)
+            abp = rec.p_signal[:, signals.index('ABP')].astype(np.float64)
+            return pleth, abp
+        return None, None
 
     def _filter_pleth(self, sig):
         scaler = StandardScaler()
@@ -73,7 +93,6 @@ class SignalProcessor():
         bpm_th2 : int
             Upper bpm threshold.
         """
-        # TODO:
 
         # Pulse interference detection
         if (sig < th1).any() | (sig > th2).any():
@@ -128,15 +147,13 @@ class SignalProcessor():
                 continue
         return True
 
-    def _calculate_bp(self, abp_win, peaks, valleys):
-        sbp = np.mean(abp_win[peaks])
-        dbp = np.mean(abp_win[valleys])
-        return sbp, dbp
+    # def _calculate_bp(self, abp_win, peaks, valleys):
+    #     sbp = np.mean(abp_win[peaks])
+    #     dbp = np.mean(abp_win[valleys])
+    #     return sbp, dbp
 
     def _valid_windows(self, pleth_windows, abp_windows):
-        valid_pleth_windows = []
-        valid_abp_values = []
-        i = 1
+        valid_samples = []
         for (pleth_win, abp_win) in zip(pleth_windows, abp_windows):
             try:
                 pleth_peaks = ppg_findpeaks(pleth_win, sampling_rate=self._fs)['PPG_Peaks']
@@ -155,9 +172,14 @@ class SignalProcessor():
                                            abp_peaks,
                                            abp_valleys,
                                            flat_line_length=3)):
-                    valid_pleth_windows.append(pleth_win)
-                    sbp, dbp = self._calculate_bp(abp_win, abp_peaks, abp_valleys)
-                    valid_abp_values.append([sbp, dbp])
+                    # sbp, dbp = self._calculate_bp(abp_win, abp_peaks, abp_valleys)
+                    sample = dict(
+                        pleth=list(pleth_win),
+                        abp=list(abp_win),
+                        sample_id=str(self._mrn) + f'_{str(self._sample_index).zfill(8)}',
+                    )
+                    valid_samples.append(sample)
+                    self._sample_index += 1
             except:
                 continue
-        return (np.array(valid_pleth_windows), np.array(valid_abp_values))
+        return valid_samples
