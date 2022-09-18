@@ -1,8 +1,10 @@
+import sys
 import glob
+import numpy as np
 import pandas as pd
-# import tensorflow as tf
-# from typing import List
-
+import tensorflow as tf
+from tqdm.notebook import tqdm
+from database_tools.tools import Normalizer
 
 class CompileDatabase():
     def __init__(self, path):
@@ -12,63 +14,135 @@ class CompileDatabase():
         frames = []
         for path in glob.glob(f'{self._path}mimic3_*.jsonlines'):
             frames.append(pd.read_json(path, lines=True))
-        df = pd.concat(frames)
+        df = pd.concat(frames, ignore_index=True)
         return df
 
 
-# def _float_array_feature(value):
-#     """Returns a float_list from a float list."""
-#     return tf.train.Feature(float_list=tf.train.FloatList(value=value))
+class GenerateTFRecords():
+    def __init__(self,
+                 data_dir,
+                 output_dir,
+                 method,
+                 split_strategy=(.7, .15, .15),
+                 max_samples=1000):
+        self._data_dir = data_dir
+        self._output_dir = output_dir
+        self._method = method
+        self._split_strategy = split_strategy
+        self._max_samples = max_samples
 
-# def _float_feature(value):
-#     """Returns a float_list from a float / double."""
-#     return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+    def run(self):
+        """
+        Methods
+            'Full Waves' : x = full pleth wave, y = full abp wave
+        """
+        print('Loading data.')
+        df = CompileDatabase(path=self._data_dir).run()
+        self._num_samples = len(df)
 
-# def _int64_feature(value):
-#     """Returns an int64_list from a bool / enum / int / uint."""
-#     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+        pleth = np.array(df['pleth'].to_list())
+        abp = np.array(df['abp'].to_list())
 
-# def window_example(sig, sbp, dbp, mrn):
-#     feature = {
-#                'sig': _float_array_feature(sig),
-#                'sbp': _float_feature(sbp),
-#                'dbp': _float_feature(dbp),
-#                'mrn': _int64_feature(mrn),
-#               }
-#     example = tf.train.Example(features=tf.train.Features(feature=feature))
-#     return example
+        print('Scaling data.')
+        scaler = Normalizer()
+        pleth = scaler.fit_transform(pleth)
 
-# def write_dataset(file_name, examples: List[tf.train.Example]):
-#     with tf.io.TFRecordWriter(file_name) as w:
-#         for tf_example in examples:
-#             w.write(tf_example.SerializeToString())
-#     return
+        print('Splitting data.')
+        idx = np.random.permutation(self._num_samples)
+        i = int(len(idx) * self._split_strategy[0])
+        j = int(len(idx) * self._split_strategy[1])
 
-# def _parse_window_function(example_proto):
-#     window_feature_description = {
-#         'sig': tf.io.FixedLenFeature([625], tf.float32),
-#         'sbp': tf.io.FixedLenFeature([], tf.float32),
-#         'dbp': tf.io.FixedLenFeature([], tf.float32),
-#         'mrn': tf.io.FixedLenFeature([], tf.int64)
-#     }
-#     return tf.io.parse_single_example(example_proto, window_feature_description)
+        idx_train = idx[0:i]
+        idx_val = idx[i:i+j]
+        idx_test = idx[i+j::]
 
-# def read_dataset(path, n_cores=1):
-#     # path is location of TFRecords files.
-#     filenames = [file for file in glob.glob(f'{path}*.tfrecords')]
-#     print(filenames)
-#     dataset = tf.data.TFRecordDataset(filenames=filenames,
-#                                       compression_type=None,
-#                                       buffer_size=None,
-#                                       num_parallel_reads=n_cores)
-#     parsed_dataset = dataset.map(_parse_window_function)
-#     return parsed_dataset
+        pleth_train = pleth[idx_train]
+        pleth_val = pleth[idx_val]
+        pleth_test = pleth[idx_test]
+        
+        abp_train = abp[idx_train]
+        abp_val = abp[idx_val]
+        abp_test = abp[idx_test]
 
-# def append_sample_count(data_profile_csv, mrn, n_samples):
-#     with open(data_profile_csv, 'r') as f:
-#         idx = int(f.readlines()[-1].split(',')[0]) + 1
-#     with open(data_profile_csv, 'a') as f:
-#         w = writer(f)
-#         row = [idx, mrn, n_samples]
-#         w.writerow(row)    
-#     return
+        if self._method == 'Full Waves':
+            self._full_wave(
+                pleth_dict=dict(
+                    train=pleth_train,
+                    val=pleth_val,
+                    test=pleth_test,
+                ),
+                abp_dict=dict(
+                    train=abp_train,
+                    val=abp_val,
+                    test=abp_test,
+                )
+            )
+        else:
+            raise ValueError(f'Invalid method {self._method}')
+        return
+
+    def _float_array_feature(self, value):
+        """Returns a float_list from a float list."""
+        return tf.train.Feature(float_list=tf.train.FloatList(value=value))
+
+    def _full_waves_window_example(self, pleth, abp):
+        feature = {
+            'pleth': self._float_array_feature(pleth),
+            'abp'  : self._float_array_feature(abp),
+        }
+        example = tf.train.Example(features=tf.train.Features(feature=feature))
+        return example
+
+    def _full_wave(self, pleth_dict, abp_dict):
+        for split in ['train', 'val', 'test']:
+            pleth = pleth_dict[split]
+            abp = abp_dict[split]
+
+            file_number = 0
+            num_samples = 0
+            examples = []
+            sys.stdout.write('\r' + f'Starting {split} split.')
+            for pleth_win, abp_win in tqdm(zip(pleth, abp)):
+                examples.append(self._full_waves_window_example(
+                    pleth=pleth_win,
+                    abp=abp_win,
+                ))
+                num_samples += 1
+                if ((num_samples / self._max_samples) == 1.0) | (num_samples == len(pleth)):
+                    self._write_record(examples, split, file_number, self._output_dir)
+                    file_number += 1
+                    examples = []
+
+    def _write_record(self, examples, split, file_number, path):
+        file_name = path + split + f'/mimic3_{str(file_number).zfill(8)}.tfrecords'
+        print('writing')
+        with tf.io.TFRecordWriter(file_name) as w:
+            for tf_example in examples:
+                w.write(tf_example.SerializeToString())
+
+
+class ReadTFRecords():
+    def __init__(self, data_dir, n_cores):
+        self._data_dir = data_dir
+        self._n_cores = n_cores
+
+    def run(self):
+        data_splits = {}
+        for split in ['train', 'val', 'test']:
+            print(f'Reading {split} split.')
+            filenames = [file for file in glob.glob(f'{self._data_dir}{split}/*.tfrecords')]
+            dataset = tf.data.TFRecordDataset(
+                filenames=filenames,
+                compression_type=None,
+                buffer_size=None,
+                num_parallel_reads=self._n_cores
+            )
+            data_splits[split] = dataset.map(self._full_waves_parse_window_function)
+        return data_splits
+
+    def _full_waves_parse_window_function(self, example_proto):
+        window_feature_description = {
+            'pleth': tf.io.FixedLenFeature([625], tf.float32),
+            'abp': tf.io.FixedLenFeature([625], tf.float32),
+        }
+        return tf.io.parse_single_example(example_proto, window_feature_description)

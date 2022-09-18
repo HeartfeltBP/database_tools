@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from shutil import rmtree
 from wfdb import rdheader, rdrecord
-from database_tools.tools.SignalProcessor import SignalProcessor
+from database_tools.tools import SignalProcessor
 
 
 class BuildDatabase():
@@ -130,7 +130,7 @@ class BuildDatabase():
             df = pd.DataFrame(used_records, columns=['folder'])
             df.index.names = ['index']
             df.to_csv(self._used_records_path)
-            rmtree(f'physionet.org/files/mimic3wdb/1.0/{folder}', ignore_errors=True)
+            rmtree(f'physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
 
     def _write(self, output, file_name):
         sys.stdout.write('\r'f'Writing data to {file_name}')
