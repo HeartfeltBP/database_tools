@@ -34,7 +34,7 @@ class BuildDatabase():
             num_samples += 1
 
             if num_samples == self._samples_per_file:
-                file_name = self._output_dir + f'mimic3_{str(file_number).zfill(8)}.json'
+                file_name = self._output_dir + f'mimic3_{str(file_number).zfill(8)}.jsonlines'
                 self._write(output, file_name)
                 file_number += 1
                 num_samples = 0
