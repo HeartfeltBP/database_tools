@@ -147,11 +147,6 @@ class SignalProcessor():
                 continue
         return True
 
-    # def _calculate_bp(self, abp_win, peaks, valleys):
-    #     sbp = np.mean(abp_win[peaks])
-    #     dbp = np.mean(abp_win[valleys])
-    #     return sbp, dbp
-
     def _valid_windows(self, pleth_windows, abp_windows):
         valid_samples = []
         for (pleth_win, abp_win) in zip(pleth_windows, abp_windows):
@@ -172,11 +167,10 @@ class SignalProcessor():
                                            abp_peaks,
                                            abp_valleys,
                                            flat_line_length=3)):
-                    # sbp, dbp = self._calculate_bp(abp_win, abp_peaks, abp_valleys)
                     sample = dict(
                         pleth=list(pleth_win),
                         abp=list(abp_win),
-                        sample_id=str(self._mrn) + f'_{str(self._sample_index).zfill(8)}',
+                        sample_id=str(str(self._mrn) + f'_{str(self._sample_index).zfill(8)}'),
                     )
                     valid_samples.append(sample)
                     self._sample_index += 1

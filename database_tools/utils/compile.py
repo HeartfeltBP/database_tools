@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tqdm.notebook import tqdm
-from database_tools.tools import Normalizer
+from database_tools.tools import Normalizer, calculate_bp
+from neurokit2.ppg import ppg_findpeaks
+from heartpy.preprocessing import flip_signal
 
 class CompileDatabase():
     def __init__(self, path):
@@ -38,6 +40,13 @@ class GenerateTFRecords():
         """
         print('Loading data.')
         df = CompileDatabase(path=self._data_dir).run()
+
+        # Write csv.
+        try:
+            df.to_csv(f'{self._output_dir}mimic3.csv')
+        except:
+            pass
+
         self._num_samples = len(df)
 
         pleth = np.array(df['pleth'].to_list())
@@ -64,18 +73,27 @@ class GenerateTFRecords():
         abp_val = abp[idx_val]
         abp_test = abp[idx_test]
 
+        pleth_dict=dict(
+            train=pleth_train,
+            val=pleth_val,
+            test=pleth_test
+        )
+
+        abp_dict=dict(
+            train=abp_train,
+            val=abp_val,
+            test=abp_test,
+        )
+
         if self._method == 'Full Waves':
             self._full_wave(
-                pleth_dict=dict(
-                    train=pleth_train,
-                    val=pleth_val,
-                    test=pleth_test,
-                ),
-                abp_dict=dict(
-                    train=abp_train,
-                    val=abp_val,
-                    test=abp_test,
-                )
+                pleth_dict=pleth_dict,
+                abp_dict=abp_dict
+            )
+        elif self._method == 'PLETH, ABP Values':
+            self._pleth_abp_values(
+                pleth_dict=pleth_dict,
+                abp_dict=abp_dict,
             )
         else:
             raise ValueError(f'Invalid method {self._method}')
@@ -113,6 +131,44 @@ class GenerateTFRecords():
                     file_number += 1
                     examples = []
 
+    def _float_feature(self, value):
+        """Returns a float_list from a float / double."""
+        return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+
+    def _pleth_abp_values_window_example(self, pleth, sbp, dbp):
+        feature = {
+            'pleth': self._float_array_feature(pleth),
+            'sbp'  : self._float_feature(sbp),
+            'dbp'  : self._float_feature(dbp),
+        }
+        example = tf.train.Example(features=tf.train.Features(feature=feature))
+        return example
+
+    def _pleth_abp_values(self, pleth_dict, abp_dict, fs=125):
+        for split in ['train', 'val', 'test']:
+            pleth = pleth_dict[split]
+            abp = abp_dict[split]
+
+            file_number = 0
+            num_samples = 0
+            examples = []
+            sys.stdout.write('\r' + f'Starting {split} split.')
+            for pleth_win, abp_win in tqdm(zip(pleth, abp)):
+                abp_peaks = ppg_findpeaks(abp_win, sampling_rate=fs)['PPG_Peaks']
+                abp_valleys = ppg_findpeaks(flip_signal(abp_win), sampling_rate=fs)['PPG_Peaks']
+                sbp, dbp = calculate_bp(abp_win, abp_peaks, abp_valleys)
+
+                examples.append(self._pleth_abp_values_window_example(
+                    pleth=pleth_win,
+                    sbp=sbp,
+                    dbp=dbp,
+                ))
+                num_samples += 1
+                if ((num_samples / self._max_samples) == 1.0) | (num_samples == len(pleth)):
+                    self._write_record(examples, split, file_number, self._output_dir)
+                    file_number += 1
+                    examples = []                
+
     def _write_record(self, examples, split, file_number, path):
         file_name = path + split + f'/mimic3_{str(file_number).zfill(8)}.tfrecords'
         print('writing')
@@ -122,8 +178,9 @@ class GenerateTFRecords():
 
 
 class ReadTFRecords():
-    def __init__(self, data_dir, n_cores):
+    def __init__(self, data_dir, method, n_cores):
         self._data_dir = data_dir
+        self._method = method
         self._n_cores = n_cores
 
     def run(self):
@@ -137,12 +194,25 @@ class ReadTFRecords():
                 buffer_size=None,
                 num_parallel_reads=self._n_cores
             )
-            data_splits[split] = dataset.map(self._full_waves_parse_window_function)
+            if self._method == 'Full Waves':
+                data_splits[split] = dataset.map(self._full_waves_parse_window_function)
+            elif self._method == 'PLETH, ABP Values':
+                data_splits[split] = dataset.map(self._pleth_abp_values_parse_window_function)
+            else:
+                raise ValueError(f'Invalid method {self._method}')
         return data_splits
 
     def _full_waves_parse_window_function(self, example_proto):
         window_feature_description = {
             'pleth': tf.io.FixedLenFeature([625], tf.float32),
             'abp': tf.io.FixedLenFeature([625], tf.float32),
+        }
+        return tf.io.parse_single_example(example_proto, window_feature_description)
+
+    def _pleth_abp_values_parse_window_function(self, example_proto):
+        window_feature_description = {
+            'pleth': tf.io.FixedLenFeature([625], tf.float32),
+            'sbp': tf.io.FixedLenFeature([], tf.float32),
+            'dbp': tf.io.FixedLenFeature([], tf.float32),
         }
         return tf.io.parse_single_example(example_proto, window_feature_description)
