@@ -41,11 +41,11 @@ class GenerateTFRecords():
         print('Loading data.')
         df = CompileDatabase(path=self._data_dir).run()
 
-        # Write csv.
-        try:
-            df.to_csv(f'{self._output_dir}mimic3.csv')
-        except:
-            pass
+        # # Write csv.
+        # try:
+        #     df.to_csv(f'{self._output_dir}mimic3.csv')
+        # except:
+        #     pass
 
         self._num_samples = len(df)
 
@@ -53,7 +53,7 @@ class GenerateTFRecords():
         abp = np.array(df['abp'].to_list())
 
         print('Scaling data.')
-        scaler = Normalizer()
+        scaler = Normalizer(self._output_dir + 'pleth')
         pleth = scaler.fit_transform(pleth)
 
         print('Splitting data.')
@@ -156,6 +156,8 @@ class GenerateTFRecords():
                 abp_peaks = ppg_findpeaks(abp_win, sampling_rate=fs)['PPG_Peaks']
                 abp_valleys = ppg_findpeaks(flip_signal(abp_win), sampling_rate=fs)['PPG_Peaks']
                 sbp, dbp = calculate_bp(abp_win, abp_peaks, abp_valleys)
+                sbp = (sbp - 25) / (250 - 25)
+                dbp = (dbp - 25) / (250 - 25)
 
                 examples.append(self._pleth_abp_values_window_example(
                     pleth=pleth_win,
@@ -163,7 +165,8 @@ class GenerateTFRecords():
                     dbp=dbp,
                 ))
                 num_samples += 1
-                if ((num_samples / self._max_samples) == 1.0) | (num_samples == len(pleth)):
+
+                if (num_samples == (self._max_samples * (file_number + 1))) | (num_samples == len(pleth)):
                     self._write_record(examples, split, file_number, self._output_dir)
                     file_number += 1
                     examples = []                

@@ -60,7 +60,7 @@ class BuildDatabase():
         return response
 
     def _get_layout(self, folder):
-        sys.stdout.write('\r' + f'Getting layout file for {folder}' + '                                ')
+        sys.stdout.write('\r' + f'Getting layout file for {folder}' + (20 * ' '))
         file = folder.split('/')[1] + '_layout'
         path = self._data_dir + folder + file
         response = self._download(path + '.hea')
@@ -70,14 +70,14 @@ class BuildDatabase():
         return None
 
     def _patient_has_pleth_abp(self, layout):
-        if layout is None:
+        if (layout is None) | (layout.sig_name is None):
             return False
-        if ('PLETH' in layout.sig_name) & ('ABP' in layout.sig_name):
+        elif ('PLETH' in layout.sig_name) & ('ABP' in layout.sig_name):
             return True
         return False
 
     def _get_master_header(self, folder):
-        sys.stdout.write('\r' + f'Getting master header file for {folder}'  + '                                ')
+        sys.stdout.write('\r' + f'Getting master header file for {folder}' + (20 * ' '))
         file = folder.split('/')[1]
         path = self._data_dir + folder + file
         response = self._download(path + '.hea')
@@ -87,7 +87,7 @@ class BuildDatabase():
         return None
 
     def _valid_segments(self, folder, master_header):
-        sys.stdout.write('\r'f'Getting valid segments for {folder}'  + '                                ')
+        sys.stdout.write('\r'f'Getting valid segments for {folder}' + (20 * ' '))
         seg_name = master_header.seg_name
         seg_len = master_header.seg_len
 
@@ -122,7 +122,7 @@ class BuildDatabase():
                 master_header = self._get_master_header(folder)
                 if master_header:
                     segments = self._valid_segments(folder, master_header)
-                    sys.stdout.write('\r'f'Processing data for {folder}'  + '                                ')
+                    sys.stdout.write('\r'f'Processing data for {folder}' + (20 * ' '))
                     sig_processor = SignalProcessor(segments, folder, mrn, self._data_dir, fs=125, window_size=5)
                     for sample in sig_processor.sample_generator():
                         yield sample
@@ -133,6 +133,6 @@ class BuildDatabase():
             rmtree(f'physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
 
     def _write(self, output, file_name):
-        sys.stdout.write('\r'f'Writing data to {file_name}'  + '                                ')
+        sys.stdout.write('\r'f'Writing data to {file_name}'  + (20 * ' '))
         with open(file_name, 'w') as f:
             f.write(output)
