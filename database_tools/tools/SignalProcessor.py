@@ -174,7 +174,7 @@ class SignalProcessor():
                     )
                     valid_samples.append(sample)
                     self._sample_index += 1
-                    if self._sample_index == 1000:
+                    if self._sample_index == 2000:
                         return valid_samples
             except:
                 continue
