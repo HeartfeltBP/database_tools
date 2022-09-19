@@ -122,7 +122,7 @@ class GenerateTFRecords():
             sys.stdout.write('\r' + f'Starting {split} split.')
             for pleth_win, abp_win in tqdm(zip(pleth, abp)):
                 examples.append(self._full_waves_window_example(
-                    pleth=pleth_win,
+                    pleth=pleth_win.reshape(-1, 1),
                     abp=abp_win,
                 ))
                 num_samples += 1
