@@ -138,8 +138,7 @@ class GenerateTFRecords():
     def _pleth_abp_values_window_example(self, pleth, sbp, dbp):
         feature = {
             'pleth': self._float_array_feature(pleth),
-            'sbp'  : self._float_feature(sbp),
-            'dbp'  : self._float_feature(dbp),
+            'bp'  : self._float_array_feature([sbp, dbp]),
         }
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         return example
@@ -178,10 +177,11 @@ class GenerateTFRecords():
 
 
 class ReadTFRecords():
-    def __init__(self, data_dir, method, n_cores):
+    def __init__(self, data_dir, method, n_cores, AUTOTUNE):
         self._data_dir = data_dir
         self._method = method
         self._n_cores = n_cores
+        self._AUTOTUNE = AUTOTUNE
 
     def run(self):
         data_splits = {}
@@ -191,28 +191,30 @@ class ReadTFRecords():
             dataset = tf.data.TFRecordDataset(
                 filenames=filenames,
                 compression_type=None,
-                buffer_size=None,
+                buffer_size=100000000,
                 num_parallel_reads=self._n_cores
             )
             if self._method == 'Full Waves':
-                data_splits[split] = dataset.map(self._full_waves_parse_window_function)
+                data_splits[split] = dataset.map(self._full_waves_parse_window_function, num_parallel_calls=self._AUTOTUNE)
             elif self._method == 'PLETH, ABP Values':
-                data_splits[split] = dataset.map(self._pleth_abp_values_parse_window_function)
+                data_splits[split] = dataset.map(self._pleth_abp_values_parse_window_function, num_parallel_calls=self._AUTOTUNE)
             else:
                 raise ValueError(f'Invalid method {self._method}')
         return data_splits
 
     def _full_waves_parse_window_function(self, example_proto):
-        window_feature_description = {
+        features = {
             'pleth': tf.io.FixedLenFeature([625], tf.float32),
             'abp': tf.io.FixedLenFeature([625], tf.float32),
         }
-        return tf.io.parse_single_example(example_proto, window_feature_description)
+        return tf.io.parse_single_example(example_proto, features)
 
     def _pleth_abp_values_parse_window_function(self, example_proto):
-        window_feature_description = {
+        features = {
             'pleth': tf.io.FixedLenFeature([625], tf.float32),
-            'sbp': tf.io.FixedLenFeature([], tf.float32),
-            'dbp': tf.io.FixedLenFeature([], tf.float32),
+            'bp': tf.io.FixedLenFeature([2], tf.float32),
         }
-        return tf.io.parse_single_example(example_proto, window_feature_description)
+        content = tf.io.parse_single_example(example_proto, features)
+        pleth = content['pleth']
+        bp = content['bp']
+        return (pleth, bp)
