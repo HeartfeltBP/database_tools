@@ -1,4 +1,38 @@
 import numpy as np
+from scipy import signal, integrate
+
+def bandpass(x, low=0.5, high=8.0, fs=125):
+    """
+    Filters signal with a 4th order Cheby II filter.
+
+    Args:
+        x (np.ndarray): Signal data.
+        low (float, optional): Lower frequency in Hz. Defaults to 0.5.
+        high (float, optional): Upper frequency in Hz. Defaults to 8.0.
+        fs (int, optional): Sampling rate. Defaults to 125.
+
+    Returns:
+        x (np.ndarray): Filtered signal.
+    """
+    # # 4th order butterworth filter
+    # btr = signal.butter(
+    #     4,
+    #     [low, high],
+    #     btype='bandpass',
+    #     output='sos',
+    #     fs=fs
+    # )
+
+    cby = signal.cheby2(
+        N=4,
+        rs=20,
+        Wn=[low, high],
+        btype='bandpass',
+        output='sos',
+        fs=fs
+    )
+    x = signal.sosfiltfilt(cby, x, padtype=None)
+    return x
 
 def align_signals(pleth, abp, win_len):
     """
@@ -53,5 +87,22 @@ def get_similarity(x, y):
 def get_hr():
     return
 
-def get_snr():
-    return
+def get_snr(x, low, high, fs):
+    # Estimate spectral power density
+    freqs, psd = signal.welch(x, fs)
+    freq_res = freqs[1] - freqs[0]
+
+    # Signal power
+    idx_sig = np.logical_and(freqs >= low, freqs <= high)
+    p_sig = integrate.simps(psd[idx_sig], dx=freq_res)
+
+    # Noise power
+    idx_noise_low = freqs < low
+    p1 = integrate.simps(psd[idx_noise_low], dx=freq_res)
+    idx_noise_high = freqs > high
+    p2 = integrate.simps(psd[idx_noise_high], dx=freq_res)
+    p_noise = p1 + p2
+
+    # Find SNR and convert to dB
+    snr = 10 * np.log10(p_sig / p_noise)
+    return snr

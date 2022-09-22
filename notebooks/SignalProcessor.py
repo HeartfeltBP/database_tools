@@ -1,8 +1,8 @@
 import numpy as np
 from wfdb import rdrecord
-from Preprocessing.SignalLevelFiltering import align_signals, get_similarity, get_hr, get_snr
+from Preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_hr, get_snr
 from Preprocessing.BeatLevelFiltering import segment_beats, successive_beat_similarity, two_signal_beat_similarity
-from Preprocessing.Utils import download, bandpass, window, normalize
+from Preprocessing.Utils import download, window, normalize
 
 
 class SignalProcessor():

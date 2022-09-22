@@ -15,39 +15,6 @@ def download(path):
     response = os.system(f'wget -q -r -np {path}')
     return response
 
-def bandpass(x, low=0.5, high=8.0, fs=125):
-    """
-    Filters signal with a 4th order Cheby II filter.
-
-    Args:
-        x (np.ndarray): Signal data.
-        low (float, optional): Lower frequency in Hz. Defaults to 0.5.
-        high (float, optional): Upper frequency in Hz. Defaults to 8.0.
-        fs (int, optional): Sampling rate. Defaults to 125.
-
-    Returns:
-        x (np.ndarray): Filtered signal.
-    """
-    # # 4th order butterworth filter
-    # btr = signal.butter(
-    #     4,
-    #     [low, high],
-    #     btype='bandpass',
-    #     output='sos',
-    #     fs=fs
-    # )
-
-    cby = signal.cheby2(
-        N=4,
-        rs=20,
-        Wn=[low, high],
-        btype='bandpass',
-        output='sos',
-        fs=fs
-    )
-    x = signal.sosfiltfilt(cby, x, padtype=None)
-    return x
-
 def window(x, win_len, overlap):
     """
     Gets indices for all windows in signal segment.
