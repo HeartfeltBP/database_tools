@@ -18,6 +18,7 @@ class SignalProcessor():
 
     def run(self, sim1=0.6, sim2=0.9, snr_t=2, hr_diff=10):
         for i, f in enumerate(self._files):
+            print('downloading')
             # Download data
             out = self._get_data(f)
 
@@ -25,18 +26,23 @@ class SignalProcessor():
                 continue
             else:
                 pleth, abp = out[0], out[1]
+            print('done')
 
+            print('applying bandpass')
             # Apply bandpass filter to PLETH
             pleth = bandpass(pleth)
+            print('done')
 
-            overlap = self._fs / 2
-            pleth_win = window(pleth, self._win_len, overlap)
-            abp_win = window(abp, self._win_len, overlap)
-            print(pleth_win.shape)
-            print(abp_win.shape)
+            overlap = int(self._fs / 2)
+            l = self._win_len + overlap
+            idx = window(pleth, l, overlap)
             
+            print('getting valid windows')
             valid_windows = []
-            for p, a in zip(pleth_win, abp_win):
+            for i, j in idx:
+                p = pleth[i:j]
+                a = abp[i:j]
+                
                 # Signal level cleaning
                 out = self._signal_level_check(p, a, sim1, sim2, snr_t, hr_diff)
 
@@ -54,27 +60,33 @@ class SignalProcessor():
         response2 = download('https://' + path + '.dat')
         if (response1 != 0) | (response2 != 0):
             return False
+        else:
+            # Extract signals from record
+            rec = rdrecord(path)
+            signals = rec.sig_name
+            pleth = rec.p_signal[:, signals.index('PLETH')].astype(np.float64)
+            abp = rec.p_signal[:, signals.index('ABP')].astype(np.float64)
 
-        # Extract signals from record
-        rec = rdrecord(path)
-        signals = rec.sig_name
-        pleth = rec.p_signal[:, signals.index('PLETH')].astype(np.float64)
-        abp = rec.p_signal[:, signals.index('ABP')].astype(np.float64)
-
-        # Set NaN to 0
-        pleth[np.isnan(pleth)] = 0
-        abp[np.isnan(abp)] = 0
+            # Set NaN to 0
+            pleth[np.isnan(pleth)] = 0
+            abp[np.isnan(abp)] = 0
         return (pleth, abp)
 
     def _signal_level_check(self, p, a, sim1, sim2, snr_t, hr_diff):
         # Align signals in time
-        p, a = align_signals(p, a)
+        p, a = align_signals(p, a, win_len=self._win_len)
 
-        # Check time / spectral similarity
-        time_sim = get_similarity(p, a, spectral=False)
-        spec_sim = get_similarity(p, a, fft=True)
-        if (time_sim < sim1) | (spec_sim < sim1):
-            return False
+        # # Check time / spectral similarity
+        # time_sim = get_similarity(p, a)
+
+        # # Get magnitude of FFT for spectral similarity
+        # p_f = np.abs(np.fft.fft(p))
+        # a_f = np.abs(np.fft.fft(a))
+        # spec_sim = get_similarity(p_f, a_f)
+
+        # print(time_sim, spec_sim)
+        # if (time_sim < sim1) | (spec_sim < sim1):
+        #     return False
 
         # TODO Implement SNR function
         # Check SNR
