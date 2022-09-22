@@ -17,7 +17,7 @@ def download(path):
 
 def bandpass(x, low=0.5, high=8.0, fs=125):
     """
-    Filters signal with a 4th order butterworth filter.
+    Filters signal with a 4th order Cheby II filter.
 
     Args:
         x (np.ndarray): Signal data.
@@ -28,15 +28,24 @@ def bandpass(x, low=0.5, high=8.0, fs=125):
     Returns:
         x (np.ndarray): Filtered signal.
     """
-    # 4th order butterworth filter
-    btr = signal.butter(
-        4,
-        [low, high],
+    # # 4th order butterworth filter
+    # btr = signal.butter(
+    #     4,
+    #     [low, high],
+    #     btype='bandpass',
+    #     output='sos',
+    #     fs=fs
+    # )
+
+    cby = signal.cheby2(
+        N=4,
+        rs=20,
+        Wn=[low, high],
         btype='bandpass',
         output='sos',
         fs=fs
     )
-    x = signal.sosfiltfilt(btr, x, padtype=None)
+    x = signal.sosfiltfilt(cby, x, padtype=None)
     return x
 
 def window(x, win_len, overlap):

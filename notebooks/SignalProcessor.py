@@ -76,17 +76,16 @@ class SignalProcessor():
         # Align signals in time
         p, a = align_signals(p, a, win_len=self._win_len)
 
-        # # Check time / spectral similarity
-        # time_sim = get_similarity(p, a)
+        # Check time / spectral similarity
+        time_sim = get_similarity(p, a)
 
-        # # Get magnitude of FFT for spectral similarity
-        # p_f = np.abs(np.fft.fft(p))
-        # a_f = np.abs(np.fft.fft(a))
-        # spec_sim = get_similarity(p_f, a_f)
+        # Get magnitude of FFT for spectral similarity
+        p_f = np.abs(np.fft.fft(p))
+        a_f = np.abs(np.fft.fft(bandpass(a)))
+        spec_sim = get_similarity(p_f, a_f)
 
-        # print(time_sim, spec_sim)
-        # if (time_sim < sim1) | (spec_sim < sim1):
-        #     return False
+        if (time_sim < sim1) | (spec_sim < sim1):
+            return False
 
         # TODO Implement SNR function
         # Check SNR
