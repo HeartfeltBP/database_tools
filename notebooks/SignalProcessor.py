@@ -16,6 +16,7 @@ class SignalProcessor():
         self._fs = fs
         
         # For testing
+        self._n_excluded = 0
         self._similarity = []
         self._snr = []
         self._hr = []
@@ -74,7 +75,9 @@ class SignalProcessor():
                 )
 
                 # Add window if valid
-                if out != False:
+                if not out:
+                    self._n_excluded += 1
+                else:
                     yield (out[0], out[1])
 
             # TODO Beat level cleaning of windows
@@ -168,4 +171,4 @@ class SignalProcessor():
         return (p, a)
 
     def get_stats(self):
-        return np.array(self._similarity), np.array(self._snr), np.array(self._hr), self._abp_max, self._abp_min
+        return self._n_excluded, np.array(self._similarity), np.array(self._snr), np.array(self._hr), self._abp_max, self._abp_min

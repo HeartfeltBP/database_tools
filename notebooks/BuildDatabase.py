@@ -32,8 +32,8 @@ class BuildDatabase():
             i += 1
             if i == 50000:
                 break
-        sim, snr, hr, abp_max, abp_min = sample_gen.get_stats()
-        return np.array(windows), sim, snr, hr, abp_max, abp_min
+        n_excluded, sim, snr, hr, abp_max, abp_min = sample_gen.get_stats()
+        return np.array(windows), n_excluded, sim, snr, hr, abp_max, abp_min
 
     def _get_valid_segs(self, path):
         df = pd.read_csv(path, names=['url'])
