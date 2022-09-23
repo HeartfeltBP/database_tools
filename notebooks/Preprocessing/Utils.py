@@ -1,6 +1,5 @@
 import os
-from scipy import signal
-from heartpy import peakdetection
+from sklearn.preprocessing import MinMaxScaler
 
 def download(path):
     """
@@ -34,6 +33,16 @@ def window(x, win_len, overlap):
     ]
     return idx
 
-def normalize():
-    # Might use sklearn StandardScaler
-    return
+def normalize(x):
+    """
+    Normalize data with sklearn MinMaxScaler.
+
+    Args:
+        x (np.ndarray): Signal data.
+
+    Returns:
+        x_scaled (np.ndarray): Normalized signal data.
+    """
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    x_scaled = scaler.fit_transform(x.reshape(-1, 1))
+    return x_scaled.reshape(-1,)

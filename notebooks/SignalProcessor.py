@@ -1,7 +1,6 @@
 import numpy as np
 from wfdb import rdrecord
 from Preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, get_f0
-from Preprocessing.BeatLevelFiltering import segment_beats, successive_beat_similarity, two_signal_beat_similarity
 from Preprocessing.Utils import download, window, normalize
 
 
@@ -20,6 +19,8 @@ class SignalProcessor():
         self._similarity = []
         self._snr = []
         self._hr = []
+        self._abp_min = 999
+        self._abp_max = 0
 
     def run(self, low=0.5, high=8.0, sim1=0.6, sim2=0.9, snr_t=20, hr_diff=1/6, f0_low=0.667, f0_high=3.0):
         """
@@ -40,26 +41,20 @@ class SignalProcessor():
             None
         """
         for i, f in enumerate(self._files):
-            print('downloading')
             # Download data
             out = self._get_data(f)
             if out == False:
                 continue
             else:
                 pleth, abp = out[0], out[1]
-            print('done')
 
-            print('applying bandpass')
             # Apply bandpass filter to PLETH
             pleth = bandpass(pleth, low=low, high=high, fs=self._fs)
-            print('done')
 
             overlap = int(self._fs / 2)
             l = self._win_len + overlap
             idx = window(pleth, l, overlap)
 
-            print('getting valid windows')
-            valid_windows = []
             for i, j in idx:
                 p = pleth[i:j]
                 a = abp[i:j]
@@ -80,21 +75,21 @@ class SignalProcessor():
 
                 # Add window if valid
                 if out != False:
-                    valid_windows.append([out[0], out[1]])
+                    yield (out[0], out[1])
 
             # TODO Beat level cleaning of windows
             # TODO Final dividing of windows before output
-        return valid_windows, np.array(self._similarity), np.array(self._snr), np.array(self._hr)
+        return
 
     def _get_data(self, path):
         # Download
-        response1 = download('https://' + path + '.hea')
-        response2 = download('https://' + path + '.dat')
+        response1 = download(path + '.hea')
+        response2 = download(path + '.dat')
         if (response1 != 0) | (response2 != 0):
             return False
         else:
             # Extract signals from record
-            rec = rdrecord(path)
+            rec = rdrecord(path[8:])  # cut of https:// from path
             signals = rec.sig_name
             pleth = rec.p_signal[:, signals.index('PLETH')].astype(np.float64)
             abp = rec.p_signal[:, signals.index('ABP')].astype(np.float64)
@@ -127,7 +122,7 @@ class SignalProcessor():
         p_f = np.abs(np.fft.fft(p))
         a_f = np.abs(np.fft.fft(bandpass(a, low=low, high=high, fs=self._fs)))
         spec_sim = get_similarity(p_f, a_f)
-        
+
         self._similarity.append(np.array([time_sim, spec_sim]))
 
         if (time_sim < sim1) | (spec_sim < sim1):
@@ -160,8 +155,17 @@ class SignalProcessor():
         if (hr < f0_low).any() | (hr > f0_high).any():
             return False
 
-        # Return valid PLETH and ABP window.
+        # Normalize pleth.
+        p = normalize(p)
+
+        # Update min, max abp
+        _min = np.min(a)
+        _max = np.max(a)
+        if _min < self._abp_min:
+            self._abp_min = _min
+        if _max > self._abp_max:
+            self._abp_max = _max
         return (p, a)
 
-    def _beat_level_check(self):
-        return
+    def get_stats(self):
+        return np.array(self._similarity), np.array(self._snr), np.array(self._hr), self._abp_max, self._abp_min
