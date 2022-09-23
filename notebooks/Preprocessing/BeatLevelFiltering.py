@@ -1,3 +1,5 @@
+import numpy as np
+
 def segment_beats():
     return
 
