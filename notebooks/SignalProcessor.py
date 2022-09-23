@@ -9,14 +9,18 @@ class SignalProcessor():
     def __init__(
         self,
         files,
-        win_len,
+        win_len=1024,
         fs=125,
     ):
         self._files = files
         self._win_len = win_len
         self._fs = fs
+        
+        # For testing
+        self._snr = []
+        self._hr = []
 
-    def run(self, sim1=0.6, sim2=0.9, snr_t=2, hr_diff=10):
+    def run(self, low=0.5, high=8.0, sim1=0.6, sim2=0.9, snr_t=20, hr_diff=1/6, f0_low=0.667, f0_high=3.0):
         for i, f in enumerate(self._files):
             print('downloading')
             # Download data
@@ -30,7 +34,7 @@ class SignalProcessor():
 
             print('applying bandpass')
             # Apply bandpass filter to PLETH
-            pleth = bandpass(pleth)
+            pleth = bandpass(pleth, low=low, high=high, fs=self._fs)
             print('done')
 
             overlap = int(self._fs / 2)
@@ -44,15 +48,26 @@ class SignalProcessor():
                 a = abp[i:j]
                 
                 # Signal level cleaning
-                out = self._signal_level_check(p, a, sim1, sim2, snr_t, hr_diff)
+                out = self._signal_level_check(
+                    p=p,
+                    a=a,
+                    low=low,
+                    high=high,
+                    sim1=sim1,
+                    sim2=sim2,
+                    snr_t=snr_t,
+                    hr_diff=hr_diff,
+                    f0_low=f0_low,
+                    f0_high=f0_high,
+                )
 
                 # Add window if valid
                 if out != False:
                     valid_windows.append([out[0], out[1]])
-            
+
             # TODO Beat level cleaning of windows
             # TODO Final dividing of windows before output
-        return valid_windows
+        return valid_windows, np.array(self._snr), np.array(self._hr)
 
     def _get_data(self, path):
         # Download
@@ -72,7 +87,19 @@ class SignalProcessor():
             abp[np.isnan(abp)] = 0
         return (pleth, abp)
 
-    def _signal_level_check(self, p, a, sim1, sim2, snr_t, hr_diff):
+    def _signal_level_check(
+        self,
+        p,
+        a,
+        low,
+        high,
+        sim1,
+        sim2,
+        snr_t,
+        hr_diff,
+        f0_low,
+        f0_high
+    ):
         # Align signals in time
         p, a = align_signals(p, a, win_len=self._win_len)
 
@@ -81,23 +108,39 @@ class SignalProcessor():
 
         # Get magnitude of FFT for spectral similarity
         p_f = np.abs(np.fft.fft(p))
-        a_f = np.abs(np.fft.fft(bandpass(a)))
+        a_f = np.abs(np.fft.fft(bandpass(a, low=low, high=high, fs=self._fs)))
         spec_sim = get_similarity(p_f, a_f)
 
         if (time_sim < sim1) | (spec_sim < sim1):
             return False
 
-        # TODO Implement SNR function
         # Check SNR
-        # snr = get_snr(p, a)
-        # if (snr < snr_t).any():
-        #     if (time_sim < sim2) | (spec_sim < sim2):
-        #         return False
+        snr = np.array(
+            [
+                get_snr(p, low=low, high=high, fs=self._fs),
+                get_snr(a, low=low, high=high, fs=self._fs),
+            ]
+        )
+
+        self._snr.append(snr)
+        if (snr < snr_t).any():
+            if (time_sim < sim2) | (spec_sim < sim2):
+                return False
 
         # TODO Implement HR function
-        # Check HR difference
-        # hr = get_hr(p, a)
-        # if np.abs(hr[0] - hr[1]) > hr_diff:
-        #     if (time_sim < sim2) | (spec_sim < sim2):
-        #         return False
+        # Check HR thresholds & difference
+        hr = np.array(
+            [
+                get_hr(p, fs=self._fs),
+                get_hr(a - np.mean(a), fs=self._fs),
+            ]
+        )
+        self._hr.append(hr)
+        if np.abs(hr[0] - hr[1]) > hr_diff:
+            if (time_sim < sim2) | (spec_sim < sim2):
+                return False
+        if (hr < f0_low).any() | (hr > f0_high).any():
+            return False
+
+        # Return valid PLETH and ABP window.
         return (p, a)
