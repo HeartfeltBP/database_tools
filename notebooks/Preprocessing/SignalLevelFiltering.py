@@ -52,7 +52,7 @@ def align_signals(pleth, abp, win_len, fs=125):
     max_offset = int(fs / 2)
 
     abp = abp[0:win_len]
-    
+
     corr = []
     for offset in range(0, max_offset):
         x = pleth[offset : win_len + offset]

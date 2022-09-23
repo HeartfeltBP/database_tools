@@ -1,6 +1,6 @@
 import numpy as np
 from wfdb import rdrecord
-from Preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_hr, get_snr
+from Preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, get_f0
 from Preprocessing.BeatLevelFiltering import segment_beats, successive_beat_similarity, two_signal_beat_similarity
 from Preprocessing.Utils import download, window, normalize
 
@@ -17,15 +17,32 @@ class SignalProcessor():
         self._fs = fs
         
         # For testing
+        self._similarity = []
         self._snr = []
         self._hr = []
 
     def run(self, low=0.5, high=8.0, sim1=0.6, sim2=0.9, snr_t=20, hr_diff=1/6, f0_low=0.667, f0_high=3.0):
+        """
+        Process all signals in list of files. Performs signal and beat level cleaning.
+        PLETH output is bandpass filtered and normalized (standardized?).
+
+        Args:
+            low (float, optional): _description_. Defaults to 0.5.
+            high (float, optional): _description_. Defaults to 8.0.
+            sim1 (float, optional): _description_. Defaults to 0.6.
+            sim2 (float, optional): _description_. Defaults to 0.9.
+            snr_t (int, optional): _description_. Defaults to 20.
+            hr_diff (_type_, optional): _description_. Defaults to 1/6.
+            f0_low (float, optional): _description_. Defaults to 0.667.
+            f0_high (float, optional): _description_. Defaults to 3.0.
+
+        Returns:
+            None
+        """
         for i, f in enumerate(self._files):
             print('downloading')
             # Download data
             out = self._get_data(f)
-
             if out == False:
                 continue
             else:
@@ -40,7 +57,7 @@ class SignalProcessor():
             overlap = int(self._fs / 2)
             l = self._win_len + overlap
             idx = window(pleth, l, overlap)
-            
+
             print('getting valid windows')
             valid_windows = []
             for i, j in idx:
@@ -67,7 +84,7 @@ class SignalProcessor():
 
             # TODO Beat level cleaning of windows
             # TODO Final dividing of windows before output
-        return valid_windows, np.array(self._snr), np.array(self._hr)
+        return valid_windows, np.array(self._similarity), np.array(self._snr), np.array(self._hr)
 
     def _get_data(self, path):
         # Download
@@ -100,7 +117,7 @@ class SignalProcessor():
         f0_low,
         f0_high
     ):
-        # Align signals in time
+        # Align signals in time (output is win_len samples long)
         p, a = align_signals(p, a, win_len=self._win_len)
 
         # Check time / spectral similarity
@@ -110,6 +127,8 @@ class SignalProcessor():
         p_f = np.abs(np.fft.fft(p))
         a_f = np.abs(np.fft.fft(bandpass(a, low=low, high=high, fs=self._fs)))
         spec_sim = get_similarity(p_f, a_f)
+        
+        self._similarity.append(np.array([time_sim, spec_sim]))
 
         if (time_sim < sim1) | (spec_sim < sim1):
             return False
@@ -127,12 +146,11 @@ class SignalProcessor():
             if (time_sim < sim2) | (spec_sim < sim2):
                 return False
 
-        # TODO Implement HR function
         # Check HR thresholds & difference
         hr = np.array(
             [
-                get_hr(p, fs=self._fs),
-                get_hr(a - np.mean(a), fs=self._fs),
+                get_f0(p, fs=self._fs),
+                get_f0(a - np.mean(a), fs=self._fs),
             ]
         )
         self._hr.append(hr)
@@ -144,3 +162,6 @@ class SignalProcessor():
 
         # Return valid PLETH and ABP window.
         return (p, a)
+
+    def _beat_level_check(self):
+        return
