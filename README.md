@@ -5,7 +5,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/ActiveBP/README">
-    <img src="images/party-parrot.gif" alt="Logo" width="400" height="400">
+    <img src="party-parrot.gif" alt="Logo" width="400" height="400">
   </a>
 
   <h3 align="center">database_tools</h3>
