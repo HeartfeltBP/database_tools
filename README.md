@@ -24,9 +24,6 @@
   <ol>
     <li>
       <a href="#introduction">Introduction</a>
-      <ul>
-        <li><a href="#materials">Materials</a></li>
-      </ul>
     </li>
     <li>
       <a href="#getting-started">Getting Started</a>
@@ -46,31 +43,12 @@
 
 
 
-<!-- ABOUT THE PROJECT -->
+<!-- Introduction -->
 ## Introduction
 
 This repo contains a set of tools for extracting and cleaning photoplethsmothography (ppg) and artial blood pressure (abp) waveforms from the [MIMIC-III Waveforms Database](https://physionet.org/content/mimic3wdb/1.0/) for the purpose of blood pressure estimation via deep learning.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-### Materials
-
-This section should list any major frameworks/libraries used to bootstrap your project. Leave any add-ons/plugins for the acknowledgements section. Here are a few examples.
-
-* [![Next][Next.js]][Next-url]
-* [![React][React.js]][React-url]
-* [![Vue][Vue.js]][Vue-url]
-* [![Angular][Angular.io]][Angular-url]
-* [![Svelte][Svelte.dev]][Svelte-url]
-* [![Laravel][Laravel.com]][Laravel-url]
-* [![Bootstrap][Bootstrap.com]][Bootstrap-url]
-* [![JQuery][JQuery.com]][JQuery-url]
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
 
 <!-- GETTING STARTED -->
 ## Getting Started
