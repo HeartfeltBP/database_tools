@@ -1,5 +1,5 @@
 <!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
-<a name="database_tools"></a>
+<a name="MIMIC-III Database Tools"></a>
 
 <!-- PROJECT LOGO -->
 <br />
@@ -8,7 +8,7 @@
     <img src="party-parrot.gif" alt="Logo" width="400" height="400">
   </a>
 
-  <h3 align="center">database_tools</h3>
+  <h3 align="center">MIMIC-III Database Tools</h3>
 
   <p align="center">
     An awesome README template to jumpstart your projects!
