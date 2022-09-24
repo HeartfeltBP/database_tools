@@ -1,3 +1,4 @@
+from shutil import rmtree
 import numpy as np
 from wfdb import rdrecord
 from Preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, get_f0
@@ -88,6 +89,7 @@ class SignalProcessor():
                     self._n_excluded += 1
                 else:
                     yield (out[0], out[1])
+            rmtree('physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
 
             # TODO Beat level cleaning of windows
             # TODO Final dividing of windows before output
