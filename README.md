@@ -11,16 +11,8 @@
   <h3 align="center">MIMIC-III Database Tools</h3>
 
   <p align="center">
-    An awesome README template to jumpstart your projects!
+    For extracting and cleaning ppg and abp data from the MIMIC-III Waveforms Database.
     <br />
-    <a href="https://github.com/othneildrew/Best-README-Template"><strong>Explore the docs »</strong></a>
-    <br />
-    <br />
-    <a href="https://github.com/othneildrew/Best-README-Template">View Demo</a>
-    ·
-    <a href="https://github.com/othneildrew/Best-README-Template/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/othneildrew/Best-README-Template/issues">Request Feature</a>
   </p>
 </div>
 
