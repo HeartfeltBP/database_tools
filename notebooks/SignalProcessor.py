@@ -23,7 +23,7 @@ class SignalProcessor():
         self._abp_min = 999
         self._abp_max = 0
 
-    def run(self, low=0.5, high=8.0, sim1=0.6, sim2=0.9, snr_t=20, hr_diff=1/6, f0_low=0.667, f0_high=3.0):
+    def run(self, config):
         """
         Process all signals in list of files. Performs signal and beat level cleaning.
         PLETH output is bandpass filtered and normalized (standardized?).
@@ -41,6 +41,15 @@ class SignalProcessor():
         Returns:
             None
         """
+        low=config['low']
+        high=config['high']
+        sim1=config['sim1']
+        sim2=config['sim2']
+        snr_t=config['snr_t']
+        hr_diff=config['hr_diff']
+        f0_low=config['f0_low']
+        f0_high=config['f0_high']
+
         for i, f in enumerate(self._files):
             # Download data
             out = self._get_data(f)

@@ -7,10 +7,12 @@ from SignalProcessor import SignalProcessor
 class BuildDatabase():
     def __init__(self,
                  output_dir,
+                 config,
                  win_len=1024,
                  fs=125,
                  data_dir='physionet.org/files/mimic3wdb/1.0/'):
         self._output_dir = output_dir
+        self._config = config
         self._win_len = win_len
         self._fs = fs
         self._data_dir = data_dir
@@ -27,10 +29,10 @@ class BuildDatabase():
 
         windows = []
         i = 0
-        for win in tqdm(sample_gen.run()):
+        for win in tqdm(sample_gen.run(config=self._config)):
             windows.append(win)
             i += 1
-            if i == 50000:
+            if i == 100000:
                 break
         n_excluded, sim, snr, hr, abp_max, abp_min = sample_gen.get_stats()
         return np.array(windows), n_excluded, sim, snr, hr, abp_max, abp_min

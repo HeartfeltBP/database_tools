@@ -81,10 +81,11 @@ def get_similarity(x, y):
     x_temp = x - x_bar
     covar = np.sum( (x_temp * y_temp) )
     var = np.sqrt( np.sum( (x_temp ** 2 ) ) * np.sum( (y_temp ** 2) ) )
-    try:
-        coef = covar / var
-    except (ZeroDivisionError, RuntimeWarning):
-        coef = 0
+    with np.errstate(divide='ignore', invalid='ignore'):
+        try:
+            coef = covar / var
+        except (ZeroDivisionError, RuntimeWarning):
+            coef = 0
     return coef
 
 def get_snr(x, low=0.5, high=0.8, fs=125):
@@ -129,11 +130,12 @@ def get_snr(x, low=0.5, high=0.8, fs=125):
     p_noise = p1 + p2
 
     # Try, except to prevent divide by 0 error
-    try:
-        # Find SNR and convert to dB
-        snr = 10 * np.log10(p_sig / p_noise)
-    except (ZeroDivisionError, RuntimeWarning):
-        snr = 999
+    with np.errstate(divide='ignore', invalid='ignore'):
+        try:
+            # Find SNR and convert to dB
+            snr = 10 * np.log10(p_sig / p_noise)
+        except (ZeroDivisionError, RuntimeWarning):
+            snr = 999
     return snr
 
 def get_f0(x, fs=125):
