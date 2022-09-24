@@ -1,9 +1,9 @@
 [tool.poetry]
 name = "database-tools"
 version = "0.1.0"
-description = "For compiling MIMIC-III waveform data into a ML ready database."
+description = "For compiling MIMIC-III waveform data into an ML ready database."
 authors = ["Cameron Johnson"]
-license = "None"
+license = "MIT"
 readme = "README.md"
 packages = [{include = "database_tools"}]
 
@@ -18,7 +18,9 @@ plotly = "^5.10.0"
 tqdm = "^4.64.1"
 openpyxl = "^3.0.10"
 scipy = "^1.9.1"
-
+neurokit2 = "==0.2.0"
+heartpy = "==1.2.7"
+wfdb = "==3.4.1"
 
 [build-system]
 requires = ["poetry-core"]

@@ -5,7 +5,8 @@ from tqdm import tqdm
 from shutil import rmtree
 from wfdb import rdheader
 
-class GetValidSegs():
+
+class DataLocator():
     def __init__(self,
                  data_dir='physionet.org/files/mimic3wdb/1.0/'):
         self._data_dir = data_dir

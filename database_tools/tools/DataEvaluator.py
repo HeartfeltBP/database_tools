@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from Plotting import histogram3d
+from plotting import histogram3d
 
 
 class DataEvaluator():

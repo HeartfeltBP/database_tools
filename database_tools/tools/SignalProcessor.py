@@ -1,181 +1,185 @@
-import os
 import numpy as np
-from itertools import groupby
-from sklearn.preprocessing import StandardScaler
-from sklearn.utils import indexable
+from shutil import rmtree
 from wfdb import rdrecord
-from scipy.signal import butter, cheby2, sosfiltfilt, medfilt
-from heartpy.peakdetection import make_windows
-from neurokit2.ppg import ppg_findpeaks
-from heartpy.preprocessing import flip_signal
+from preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, get_f0
+from preprocessing.Utils import download, window, normalize
 
 
 class SignalProcessor():
-    def __init__(self, segments, folder, mrn, data_dir, fs=125, window_size=5):
-        self._segments = segments
-        self._folder = folder
-        self._mrn = mrn
-        self._data_dir = data_dir
+    def __init__(
+        self,
+        files,
+        win_len=1024,
+        fs=125,
+    ):
+        self._files = files
+        self._win_len = win_len
         self._fs = fs
-        self._window_size = window_size
-        self._sample_index = 0
+        
+        # For testing
+        self._n_excluded = 0
+        self._similarity = []
+        self._snr = []
+        self._hr = []
+        self._abp_min = 999
+        self._abp_max = 0
 
-    def sample_generator(self):
-        for seg in self._segments:
-            pleth, abp = self._get_sigs(self._folder, seg)
-            if indexable(pleth, abp) is None:
-                raise ValueError('pleth and abp waveforms are not the same length')
+    def run(self, config):
+        """
+        Process all signals in list of files. Performs signal and beat level cleaning.
+        PLETH output is bandpass filtered and normalized (standardized?).
 
-            pleth_f = self._filter_pleth(pleth)
-            abp[np.argwhere(np.isnan(abp))] = 0
+        Args:
+            low (float, optional): _description_. Defaults to 0.5.
+            high (float, optional): _description_. Defaults to 8.0.
+            sim1 (float, optional): _description_. Defaults to 0.6.
+            sim2 (float, optional): _description_. Defaults to 0.9.
+            snr_t (int, optional): _description_. Defaults to 20.
+            hr_diff (_type_, optional): _description_. Defaults to 1/6.
+            f0_low (float, optional): _description_. Defaults to 0.667.
+            f0_high (float, optional): _description_. Defaults to 3.0.
 
-            pleth_windows = self._window(pleth_f, self._window_size)
-            abp_windows = self._window(abp, self._window_size)
+        Returns:
+            None
+        """
+        low=config['low']
+        high=config['high']
+        sim1=config['sim1']
+        sim2=config['sim2']
+        snr_t=config['snr_t']
+        hr_diff=config['hr_diff']
+        f0_low=config['f0_low']
+        f0_high=config['f0_high']
 
-            valid_samples = self._valid_windows(pleth_windows, abp_windows)
-            for sample in valid_samples:
-                yield sample
+        for i, f in enumerate(self._files):
+            # Download data
+            out = self._get_data(f)
+            if out == False:
+                continue
+            else:
+                pleth, abp = out[0], out[1]
 
-    def _download(self, path):
-        response = os.system(f'wget -q -r -np {path}')
-        return response
+            # Apply bandpass filter to PLETH
+            pleth = bandpass(pleth, low=low, high=high, fs=self._fs)
 
-    def _get_sigs(self, folder, seg):
-        path = self._data_dir + folder + seg
-        response = self._download(path + '.dat')
-        if response == 0:
-            rec = rdrecord(path)
+            overlap = int(self._fs / 2)
+            l = self._win_len + overlap
+            idx = window(pleth, l, overlap)
+
+            for i, j in idx:
+                p = pleth[i:j]
+                a = abp[i:j]
+                
+                # Signal level cleaning
+                out = self._signal_level_check(
+                    p=p,
+                    a=a,
+                    low=low,
+                    high=high,
+                    sim1=sim1,
+                    sim2=sim2,
+                    snr_t=snr_t,
+                    hr_diff=hr_diff,
+                    f0_low=f0_low,
+                    f0_high=f0_high,
+                )
+
+                # Add window if valid
+                if not out:
+                    self._n_excluded += 1
+                else:
+                    yield (out[0], out[1])
+            rmtree('physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
+
+            # TODO Beat level cleaning of windows
+            # TODO Final dividing of windows before output
+        return
+
+    def _get_data(self, path):
+        # Download
+        response1 = download(path + '.hea')
+        response2 = download(path + '.dat')
+        if (response1 != 0) | (response2 != 0):
+            return False
+        else:
+            # Extract signals from record
+            rec = rdrecord(path[8:])  # cut of https:// from path
             signals = rec.sig_name
             pleth = rec.p_signal[:, signals.index('PLETH')].astype(np.float64)
             abp = rec.p_signal[:, signals.index('ABP')].astype(np.float64)
-            return pleth, abp
-        return None, None
 
-    def _filter_pleth(self, sig):
-        scaler = StandardScaler()
-        btr = butter(4, [0.5, 8.0], btype='bandpass', output='sos', fs=self._fs)
-        cby = cheby2(4, 20, [0.5, 8.0], btype='bandpass', output='sos', fs=self._fs)
+            # Set NaN to 0
+            pleth[np.isnan(pleth)] = 0
+            abp[np.isnan(abp)] = 0
+        return (pleth, abp)
 
-        sig[np.argwhere(np.isnan(sig))] = 0  # Set nan to 0
-        sig = scaler.fit_transform(sig.reshape(-1, 1)).reshape(-1)
-        sig = sosfiltfilt(btr, sig, padtype=None)
-        sig = sosfiltfilt(cby, sig, padtype=None)
-        sig = medfilt(sig, kernel_size=3)
-        return sig
+    def _signal_level_check(
+        self,
+        p,
+        a,
+        low,
+        high,
+        sim1,
+        sim2,
+        snr_t,
+        hr_diff,
+        f0_low,
+        f0_high
+    ):
+        # Align signals in time (output is win_len samples long)
+        p, a = align_signals(p, a, win_len=self._win_len)
 
-    def _window(self, sig, window_size):
-        idx = make_windows(sig, sample_rate=self._fs, windowsize=window_size, min_size=(window_size * self._fs))
-        windows = np.array([np.array(sig[i:j]) for i, j in idx])
-        return windows
+        # Check time / spectral similarity
+        time_sim = get_similarity(p, a)
 
-    def _valid_pleth_window(self,
-                            sig,
-                            peaks,
-                            valleys,
-                            th1=-1.5,
-                            th2=1.5,
-                            dvc_th=1.0,
-                            bpm_th1=30,
-                            bpm_th2=220):
-        """
-        th1 : float
-            Lower amplitude threshold.
+        # Get magnitude of FFT for spectral similarity
+        p_f = np.abs(np.fft.fft(p))
+        a_f = np.abs(np.fft.fft(bandpass(a, low=low, high=high, fs=self._fs)))
+        spec_sim = get_similarity(p_f, a_f)
 
-        th2 : float
-            Ppper amplitude threshold.
+        self._similarity.append(np.array([time_sim, spec_sim]))
 
-        dvc_th : float
-            Dynamic variation coefficient threshold.
-
-        bpm_th1 : int
-            Lower bpm threshold.
-
-        bpm_th2 : int
-            Upper bpm threshold.
-        """
-
-        # Pulse interference detection
-        if (sig < th1).any() | (sig > th2).any():
+        if (time_sim < sim1) | (spec_sim < sim1):
             return False
 
-        # Missing segment detection
-        mj = np.mean(abs(sig))
-        vj = np.mean(np.square(sig - mj))
-        dvc = vj / mj
-        if dvc < dvc_th:
-            return False
+        # Check SNR
+        snr = np.array(
+            [
+                get_snr(p, low=low, high=high, fs=self._fs),
+                get_snr(a, low=low, high=high, fs=self._fs),
+            ]
+        )
 
-        # Motion artifact detection
-        n_peaks = len(peaks)
-        if (n_peaks < (bpm_th1 / (60 / self._window_size))) | (n_peaks > (bpm_th2 / (60 / self._window_size))):
-            return False
-
-        # Waveform instability detection
-        if peaks[0] > valleys[0]:  # Is the first index a peak or valley?
-            x = valleys
-            y = peaks
-        else:
-            x = peaks
-            y = valleys
-
-        for i, idx in enumerate(x):  # Are peaks and valleys in index order?
-            try:
-                jdx = x[i + 1]
-            except IndexError:
-                continue
-            if (y[i] < idx) | (y[i] > jdx):
+        self._snr.append(snr)
+        if (snr < snr_t).any():
+            if (time_sim < sim2) | (spec_sim < sim2):
                 return False
-        return True
 
-    def _all_equal(self, iterable):
-        g = groupby(iterable)
-        return next(g, True) and not next(g, False)
-
-    def _valid_abp_window(self,
-                          sig,
-                          peaks,
-                          valleys,
-                          flat_line_length=2):
-        if (len(peaks) == 0) | (len(valleys) == 0):
+        # Check HR thresholds & difference
+        hr = np.array(
+            [
+                get_f0(p, fs=self._fs),
+                get_f0(a - np.mean(a), fs=self._fs),
+            ]
+        )
+        self._hr.append(hr)
+        if np.abs(hr[0] - hr[1]) > hr_diff:
+            if (time_sim < sim2) | (spec_sim < sim2):
+                return False
+        if (hr < f0_low).any() | (hr > f0_high).any():
             return False
-        for i in peaks:
-            try:
-                seg = sig[i - flat_line_length:i + flat_line_length]
-                if self._all_equal(seg):
-                    return False
-            except IndexError:
-                continue
-        return True
 
-    def _valid_windows(self, pleth_windows, abp_windows):
-        valid_samples = []
-        for (pleth_win, abp_win) in zip(pleth_windows, abp_windows):
-            try:
-                pleth_peaks = ppg_findpeaks(pleth_win, sampling_rate=self._fs)['PPG_Peaks']
-                pleth_valleys = ppg_findpeaks(flip_signal(pleth_win), sampling_rate=self._fs)['PPG_Peaks']
-                abp_peaks = ppg_findpeaks(abp_win, sampling_rate=self._fs)['PPG_Peaks']
-                abp_valleys = ppg_findpeaks(flip_signal(abp_win), sampling_rate=self._fs)['PPG_Peaks']
-                if (self._valid_pleth_window(pleth_win,
-                                             pleth_peaks,
-                                             pleth_valleys,
-                                             th1=-1.5,
-                                             th2=1.5,
-                                             dvc_th=1.0,
-                                             bpm_th1=30,
-                                             bpm_th2=220) & 
-                    self._valid_abp_window(abp_win,
-                                           abp_peaks,
-                                           abp_valleys,
-                                           flat_line_length=3)):
-                    sample = dict(
-                        pleth=list(pleth_win),
-                        abp=list(abp_win),
-                        sample_id=str(str(self._mrn) + f'_{str(self._sample_index).zfill(8)}'),
-                    )
-                    valid_samples.append(sample)
-                    self._sample_index += 1
-                    if self._sample_index == 2000:
-                        return valid_samples
-            except:
-                continue
-        return valid_samples
+        # Normalize pleth.
+        p = normalize(p)
+
+        # Update min, max abp
+        _min = np.min(a)
+        _max = np.max(a)
+        if _min < self._abp_min:
+            self._abp_min = _min
+        if _max > self._abp_max:
+            self._abp_max = _max
+        return (p, a)
+
+    def get_stats(self):
+        return self._n_excluded, np.array(self._similarity), np.array(self._snr), np.array(self._hr), self._abp_max, self._abp_min

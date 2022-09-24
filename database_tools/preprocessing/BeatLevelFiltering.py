@@ -1,3 +1,7 @@
+"""
+NOT CURRENTLY IN USE
+"""
+
 import numpy as np
 from neurokit2.ppg import ppg_findpeaks
 from heartpy.preprocessing import flip_signal
