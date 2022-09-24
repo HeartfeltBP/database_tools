@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from Plotting import histogram3d
 
@@ -15,7 +16,8 @@ class DataEvaluator():
 
     def evaluate_sim(self, bins=50):
         pleth, abp = self._sim[:, 0], self._sim[:, 1]
-        fig = histogram3d(pleth, abp, title='Similarity', bins=bins)
+        fig = histogram3d(pleth, abp, range_=[[0, 1], [0, 1]], title='Similarity', bins=bins)
+        fig.update_scenes(yaxis_autorange='reversed')
         return fig
 
     def evaluate_snr(self, bins=50):
@@ -26,8 +28,13 @@ class DataEvaluator():
         return (pleth, abp)
 
     def evaluate_hr(self, bins=50):
-        pleth, abp = self._hr[:, 0], self._hr[:, 1]
-        fig = histogram3d(pleth, abp, title='Heart Rate', bins=bins)
+        pleth, abp = self._hr[:, 0] * 60, self._hr[:, 1] * 60
+        min_ = np.min((pleth, abp)) - 10
+        max_ = np.max((pleth, abp)) + 10
+        fig = histogram3d(pleth, abp, range_=[[min_, max_], [min_, max_]], title='Heart Rate', bins=bins)
+        fig.update_scenes(xaxis_range=[min_, max_],
+                          yaxis_range=[min_, max_],
+                          yaxis_autorange='reversed')
         return fig
 
     def percent_dropped(self):

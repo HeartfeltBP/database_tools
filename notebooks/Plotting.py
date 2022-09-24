@@ -47,13 +47,13 @@ def _triangulate_bar_faces(positions, sizes=None):
 
     return  vertices, I, J, K  #triangulation vertices and I, J, K for mesh3d
 
-def _get_plotly_mesh3d(x, y, bins=5, bargap=0.05, range_extent=0.2):
+def _get_plotly_mesh3d(x, y, range_, bins=5, bargap=0.05):
     bins = [bins, bins]
     # x, y- array-like of shape (n,), defining the x, and y-ccordinates of data set for which we plot a 3d hist
-    hist, xedges, yedges = np.histogram2d(x, y, 
-                                          bins=bins, 
-                                          range=[[0, 1],
-                                                 [0, 1]])
+    hist, xedges, yedges = np.histogram2d(x, y,
+                                          bins=bins,
+                                          range=[range_[0],
+                                                 range_[1]])
     xsize = xedges[1]-xedges[0]-bargap
     ysize = yedges[1]-yedges[0]-bargap
     xe, ye= np.meshgrid(xedges[:-1], yedges[:-1])
@@ -67,9 +67,22 @@ def _get_plotly_mesh3d(x, y, bins=5, bargap=0.05, range_extent=0.2):
     X, Y, Z = vertices.T
     return X, Y, Z, I, J, K
 
-def histogram3d(x, y, title='3D Histogram', bins=50):
-    X, Y, Z, I, J, K = _get_plotly_mesh3d(x, y, bins=bins, bargap=0)
-    mesh3d = go.Mesh3d(x=X, y=Y, z=Z, i=I, j=J, k=K, color="#ba2461", flatshading=True)
+def histogram3d(x, y, range_, title='3D Histogram', bins=50):
+    X, Y, Z, I, J, K = _get_plotly_mesh3d(x, y, range_, bins=bins, bargap=0)
+
+    lighting = go.mesh3d.Lighting(
+        ambient=0.6,
+        roughness=0.1,
+        specular=1.0,
+        fresnel=5.0,
+    )
+    mesh3d = go.Mesh3d(
+        x=X, y=Y, z=Z,
+        i=I, j=J, k=K,
+        color="#ba2461",
+        flatshading=False,
+        lighting=lighting,
+    )
     layout = go.Layout(width=1000, 
                        height=1000, 
                        title_text=title, 
@@ -78,9 +91,7 @@ def histogram3d(x, y, title='3D Histogram', bins=50):
                                   camera_eye_x=-1.0, 
                                   camera_eye_y=1.25,
                                   camera_eye_z=1.25,
-                                 )
-                    
+                                 ),
                        )
     fig = go.Figure(data=[mesh3d], layout=layout)
-    fig.update_scenes(yaxis_autorange='reversed')
     return fig

@@ -29,10 +29,10 @@ class BuildDatabase():
 
         windows = []
         i = 0
-        for win in tqdm(sample_gen.run(config=self._config)):
+        for win in tqdm(sample_gen.run(config=self._config), total=300000):
             windows.append(win)
             i += 1
-            if i == 100000:
+            if i == 300000:
                 break
         n_excluded, sim, snr, hr, abp_max, abp_min = sample_gen.get_stats()
         return np.array(windows), n_excluded, sim, snr, hr, abp_max, abp_min
