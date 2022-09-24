@@ -31,8 +31,9 @@ class DataLocator():
             if (i % 100) == 0:
                 rmtree(self._data_dir, ignore_errors=True)
 
-        pd.DataFrame(valid_segs).to_csv(out_path + 'valid_segs.csv', index=False)
-        return valid_segs
+        df = pd.DataFrame(valid_segs)
+        df.to_csv(out_path + 'valid_segs.csv', index=False)
+        return
 
     def _build_empty_database(self, records_path):
         path = f'data-{str(date.today())}/'

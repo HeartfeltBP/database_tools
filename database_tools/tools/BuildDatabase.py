@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from tqdm.notebook import tqdm
-from SignalProcessor import SignalProcessor
+from database_tools.preprocessing import SignalProcessor
 
 
 class BuildDatabase():
@@ -29,10 +29,11 @@ class BuildDatabase():
 
         windows = []
         i = 0
-        for win in tqdm(sample_gen.run(config=self._config), total=300000):
+        print('Starting sample generator...')
+        for win in tqdm(sample_gen.run(config=self._config), total=1000):
             windows.append(win)
             i += 1
-            if i == 300000:
+            if i == 1000:
                 break
         n_excluded, sim, snr, hr, abp_max, abp_min = sample_gen.get_stats()
         return np.array(windows), n_excluded, sim, snr, hr, abp_max, abp_min
@@ -40,3 +41,9 @@ class BuildDatabase():
     def _get_valid_segs(self, path):
         df = pd.read_csv(path, names=['url'])
         return df
+
+    def _save_metrics(self, n_excluded, sim, snr, hr, abp_max, abp_min):
+        return
+
+    def _write_to_jsonlines(self, data, path):
+        return

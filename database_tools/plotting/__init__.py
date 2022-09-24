@@ -1,1 +1,1 @@
-from histogram3d import histogram3d
+from .histogram3d import histogram3d

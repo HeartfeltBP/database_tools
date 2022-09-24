@@ -1,4 +1,3 @@
-from DataLocator import DataLocator
-from BuildDatabase import BuildDatabase
-from SignalProcessor import SignalProcessor
-from DataEvaluator import DataEvaluator
+from .DataLocator import DataLocator
+from .BuildDatabase import BuildDatabase
+from .DataEvaluator import DataEvaluator

@@ -1,8 +1,9 @@
 import numpy as np
+import pandas as pd
 from shutil import rmtree
 from wfdb import rdrecord
-from preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, get_f0
-from preprocessing.Utils import download, window, normalize
+from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, get_f0
+from database_tools.preprocessing.Utils import download, window, normalize
 
 
 class SignalProcessor():
@@ -15,19 +16,22 @@ class SignalProcessor():
         self._files = files
         self._win_len = win_len
         self._fs = fs
-        
-        # For testing
-        self._n_excluded = 0
-        self._similarity = []
-        self._snr = []
-        self._hr = []
-        self._abp_min = 999
-        self._abp_max = 0
+
+        # Metric tracking
+        self._val     = []
+        self._t_sim   = []
+        self._f_sim   = []
+        self._ppg_snr = []
+        self._abp_snr = []
+        self._ppg_f0  = []
+        self._abp_f0  = []
+        self._abp_min = []
+        self._abp_max = []
 
     def run(self, config):
         """
         Process all signals in list of files. Performs signal and beat level cleaning.
-        PLETH output is bandpass filtered and normalized (standardized?).
+        ppg output is bandpass filtered and normalized (standardized?).
 
         Args:
             low (float, optional): _description_. Defaults to 0.5.
@@ -57,19 +61,19 @@ class SignalProcessor():
             if out == False:
                 continue
             else:
-                pleth, abp = out[0], out[1]
+                ppg, abp = out[0], out[1]
 
-            # Apply bandpass filter to PLETH
-            pleth = bandpass(pleth, low=low, high=high, fs=self._fs)
+            # Apply bandpass filter to ppg
+            ppg = bandpass(ppg, low=low, high=high, fs=self._fs)
 
             overlap = int(self._fs / 2)
             l = self._win_len + overlap
-            idx = window(pleth, l, overlap)
+            idx = window(ppg, l, overlap)
 
             for i, j in idx:
-                p = pleth[i:j]
+                p = ppg[i:j]
                 a = abp[i:j]
-                
+
                 # Signal level cleaning
                 out = self._signal_level_check(
                     p=p,
@@ -84,14 +88,14 @@ class SignalProcessor():
                     f0_high=f0_high,
                 )
 
-                # Add window if valid
-                if not out:
-                    self._n_excluded += 1
+                # Add window if valid is True
+                if not out[0][0]:
+                    self._append_metrics(out[0])
                 else:
-                    yield (out[0], out[1])
+                    self._append_metrics(out[0])
+                    yield (out[1][0], out[1][1])
             rmtree('physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
 
-            # TODO Beat level cleaning of windows
             # TODO Final dividing of windows before output
         return
 
@@ -105,13 +109,13 @@ class SignalProcessor():
             # Extract signals from record
             rec = rdrecord(path[8:])  # cut of https:// from path
             signals = rec.sig_name
-            pleth = rec.p_signal[:, signals.index('PLETH')].astype(np.float64)
+            ppg = rec.p_signal[:, signals.index('PLETH')].astype(np.float64)
             abp = rec.p_signal[:, signals.index('ABP')].astype(np.float64)
 
             # Set NaN to 0
-            pleth[np.isnan(pleth)] = 0
+            ppg[np.isnan(ppg)] = 0
             abp[np.isnan(abp)] = 0
-        return (pleth, abp)
+        return (ppg, abp)
 
     def _signal_level_check(
         self,
@@ -129,57 +133,61 @@ class SignalProcessor():
         # Align signals in time (output is win_len samples long)
         p, a = align_signals(p, a, win_len=self._win_len)
 
-        # Check time / spectral similarity
+        # Get time similarity
         time_sim = get_similarity(p, a)
 
-        # Get magnitude of FFT for spectral similarity
+        # Get spectral similarity
         p_f = np.abs(np.fft.fft(p))
         a_f = np.abs(np.fft.fft(bandpass(a, low=low, high=high, fs=self._fs)))
         spec_sim = get_similarity(p_f, a_f)
 
-        self._similarity.append(np.array([time_sim, spec_sim]))
+        # Get SNR
+        snr_p = get_snr(p, low=low, high=high, fs=self._fs)
+        snr_a = get_snr(a, low=low, high=high, fs=self._fs)
 
+        # Get fundamental frequencies
+        f0_p = get_f0(p, fs=self._fs)
+        f0_a = get_f0(a - np.mean(a), fs=self._fs)
+        f0 = np.array([f0_p, f0_a])
+
+        # Get min, max abp
+        min_ = np.min(a)
+        max_ = np.max(a)
+
+        # Check similarity, snr, f0, and bp
+        valid = True
         if (time_sim < sim1) | (spec_sim < sim1):
-            return False
-
-        # Check SNR
-        snr = np.array(
-            [
-                get_snr(p, low=low, high=high, fs=self._fs),
-                get_snr(a, low=low, high=high, fs=self._fs),
-            ]
-        )
-
-        self._snr.append(snr)
-        if (snr < snr_t).any():
+            valid = False
+        elif (snr_p < snr_t) | (snr_a < snr_t):
             if (time_sim < sim2) | (spec_sim < sim2):
-                return False
-
-        # Check HR thresholds & difference
-        hr = np.array(
-            [
-                get_f0(p, fs=self._fs),
-                get_f0(a - np.mean(a), fs=self._fs),
-            ]
-        )
-        self._hr.append(hr)
-        if np.abs(hr[0] - hr[1]) > hr_diff:
+                valid = False
+        elif np.abs(f0_p - f0_a) > hr_diff:
             if (time_sim < sim2) | (spec_sim < sim2):
-                return False
-        if (hr < f0_low).any() | (hr > f0_high).any():
-            return False
+                valid = False
+        elif (f0 < f0_low).any() | (f0 > f0_high).any():
+            valid = False
+        # TODO Implement bp survival check
 
-        # Normalize pleth.
-        p = normalize(p)
+        if valid:
+            # Normalize ppg.
+            p = normalize(p)
+            return ([valid, time_sim, spec_sim, snr_p, snr_a, f0_p, f0_a, min_, max_], [p, a])
+        else:
+            return ([valid, time_sim, spec_sim, snr_p, snr_a, f0_p, f0_a, min_, max_], [0, 0])
 
-        # Update min, max abp
-        _min = np.min(a)
-        _max = np.max(a)
-        if _min < self._abp_min:
-            self._abp_min = _min
-        if _max > self._abp_max:
-            self._abp_max = _max
-        return (p, a)
+    def append_metrics(self, data):
+        self._val.append(data[0])
+        self._t_sim.append(data[1])
+        self._f_sim.append(data[2])
+        self._ppg_snr.append(data[3])
+        self._abp_snr.append(data[4])
+        self._ppg_f0.append(data[5])
+        self._abp_f0.append(data[6])
+        self._abp_min.append(data[7])
+        self._abp_max.append(data[8])
 
     def get_stats(self):
-        return self._n_excluded, np.array(self._similarity), np.array(self._snr), np.array(self._hr), self._abp_max, self._abp_min
+        df = pd.DataFrame(
+            # TODO Put metrics in dataframe and save to csv.
+        )
+        return
