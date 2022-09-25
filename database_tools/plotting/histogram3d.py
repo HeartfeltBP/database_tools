@@ -92,6 +92,7 @@ def histogram3d(x, y, range_, title='3D Histogram', bins=50):
                                   camera_eye_y=1.25,
                                   camera_eye_z=1.25,
                                  ),
+                       yaxis={'autorange': False},
                        )
     fig = go.Figure(data=[mesh3d], layout=layout)
     return fig

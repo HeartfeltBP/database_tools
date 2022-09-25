@@ -1,6 +1,6 @@
-import numpy as np
+import json
 import pandas as pd
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 from database_tools.preprocessing import SignalProcessor
 
 
@@ -10,11 +10,15 @@ class BuildDatabase():
                  config,
                  win_len=1024,
                  fs=125,
+                 samples_per_file=5000,
+                 max_samples=5000,
                  data_dir='physionet.org/files/mimic3wdb/1.0/'):
         self._output_dir = output_dir
         self._config = config
         self._win_len = win_len
         self._fs = fs
+        self._samples_per_file = samples_per_file
+        self._max_samples = max_samples
         self._data_dir = data_dir
 
     def run(self):
@@ -27,23 +31,30 @@ class BuildDatabase():
             fs=self._fs,
         )
 
-        windows = []
-        i = 0
+        samples = ''
+        n_samples = 0
         print('Starting sample generator...')
-        for win in tqdm(sample_gen.run(config=self._config), total=1000):
-            windows.append(win)
-            i += 1
-            if i == 1000:
-                break
-        n_excluded, sim, snr, hr, abp_max, abp_min = sample_gen.get_stats()
-        return np.array(windows), n_excluded, sim, snr, hr, abp_max, abp_min
+        for ppg, abp in tqdm(sample_gen.run(config=self._config), total=self._max_samples):
+            samples += json.dumps(dict(ppg=ppg.tolist(), abp=abp.tolist())) + '\n'
+            n_samples += 1
+
+            if (n_samples % self._samples_per_file) == 0:
+                outfile = self._output_dir + f'mimic3/mimic3_{int(n_samples / self._samples_per_file) - 1}.jsonlines'
+                self._write_to_jsonlines(samples, outfile)
+                samples = ''
+                if n_samples >= self._max_samples:
+                    break
+
+        print('Saving stats...')
+        sample_gen.save_stats(self._output_dir + 'mimic3_stats.csv')
+        print('Done!')
+        return
 
     def _get_valid_segs(self, path):
         df = pd.read_csv(path, names=['url'])
         return df
 
-    def _save_metrics(self, n_excluded, sim, snr, hr, abp_max, abp_min):
-        return
-
-    def _write_to_jsonlines(self, data, path):
-        return
+    def _write_to_jsonlines(self, output, outfile):
+        print(f'Writing to {outfile}')
+        with open(outfile, 'w') as f:
+            f.write(output)

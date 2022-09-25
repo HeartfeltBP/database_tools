@@ -23,8 +23,8 @@ class SignalProcessor():
         self._f_sim   = []
         self._ppg_snr = []
         self._abp_snr = []
-        self._ppg_f0  = []
-        self._abp_f0  = []
+        self._ppg_hr  = []
+        self._abp_hr  = []
         self._abp_min = []
         self._abp_max = []
 
@@ -99,6 +99,23 @@ class SignalProcessor():
             # TODO Final dividing of windows before output
         return
 
+    def save_stats(self, path):
+        df = pd.DataFrame(
+            dict(
+                valid=self._val,
+                time_similarity=self._t_sim,
+                spectral_similarity=self._f_sim,
+                ppg_snr=self._ppg_snr,
+                abp_snr=self._abp_snr,
+                ppg_hr=self._ppg_hr,
+                abp_hr=self._abp_hr,
+                abp_min=self._abp_min,
+                abp_max=self._abp_max,
+            )
+        )
+        df.to_csv(path, index=False)
+        return
+
     def _get_data(self, path):
         # Download
         response1 = download(path + '.hea')
@@ -171,23 +188,43 @@ class SignalProcessor():
         if valid:
             # Normalize ppg.
             p = normalize(p)
-            return ([valid, time_sim, spec_sim, snr_p, snr_a, f0_p, f0_a, min_, max_], [p, a])
+            return (
+                [
+                 valid,
+                 float(time_sim),
+                 float(spec_sim),
+                 float(snr_p),
+                 float(snr_a),
+                 float(f0_p * 60),
+                 float(f0_a * 60),
+                 float(min_),
+                 float(max_)
+                ],
+                [p, a],
+            )
         else:
-            return ([valid, time_sim, spec_sim, snr_p, snr_a, f0_p, f0_a, min_, max_], [0, 0])
+            return (
+                [
+                 valid,
+                 float(time_sim),
+                 float(spec_sim),
+                 float(snr_p),
+                 float(snr_a),
+                 float(f0_p * 60),
+                 float(f0_a * 60),
+                 float(min_),
+                 float(max_)
+                ],
+                [0, 0],
+            )
 
-    def append_metrics(self, data):
+    def _append_metrics(self, data):
         self._val.append(data[0])
         self._t_sim.append(data[1])
         self._f_sim.append(data[2])
         self._ppg_snr.append(data[3])
         self._abp_snr.append(data[4])
-        self._ppg_f0.append(data[5])
-        self._abp_f0.append(data[6])
+        self._ppg_hr.append(data[5])
+        self._abp_hr.append(data[6])
         self._abp_min.append(data[7])
         self._abp_max.append(data[8])
-
-    def get_stats(self):
-        df = pd.DataFrame(
-            # TODO Put metrics in dataframe and save to csv.
-        )
-        return

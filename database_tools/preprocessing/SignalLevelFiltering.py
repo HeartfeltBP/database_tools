@@ -135,7 +135,7 @@ def get_snr(x, low=0.5, high=0.8, fs=125):
             # Find SNR and convert to dB
             snr = 10 * np.log10(p_sig / p_noise)
         except (ZeroDivisionError, RuntimeWarning):
-            snr = 999
+            snr = 0
     return snr
 
 def get_f0(x, fs=125):
@@ -156,5 +156,8 @@ def get_f0(x, fs=125):
     # Divide by 0 warnings expected
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', category=RuntimeWarning)
-        f0 = fs / np.mean(np.diff(crossings))
+        try:
+            f0 = fs / np.mean(np.diff(crossings))
+        except (ZeroDivisionError, RuntimeWarning):
+            f0 = 0
     return f0

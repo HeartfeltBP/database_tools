@@ -1,18 +1,35 @@
+from threading import stack_size
 import numpy as np
 import pandas as pd
 from database_tools.plotting import histogram3d
 
+pd.options.plotting.backend = 'plotly'
 
 class DataEvaluator():
-    def __init__(self,
-                 sim,
-                 snr,
-                 hr,
-                 n_excluded):
-        self._sim = sim
-        self._snr = snr
-        self._hr = hr
-        self._n_excluded = n_excluded
+    def __init__(self, stats):
+        self._stats = stats
+        self._stats = self._stats.fillna(0)
+        self._sim = np.concatenate(
+            (
+                np.array(self._stats['time_similarity']).reshape(-1, 1),
+                np.array(self._stats['spectral_similarity']).reshape(-1, 1),
+            ),
+            axis=1
+        )
+        self._snr = np.concatenate(
+            (
+                np.array(self._stats['ppg_snr']).reshape(-1, 1),
+                np.array(self._stats['abp_snr']).reshape(-1, 1),
+            ),
+            axis=1,
+        )
+        self._hr = np.concatenate(
+            (
+                np.array(self._stats['ppg_hr']).reshape(-1, 1),
+                np.array(self._stats['abp_hr']).reshape(-1, 1),
+            ),
+            axis=1,
+        )
 
     def run(self):
         figs = {}
@@ -37,14 +54,11 @@ class DataEvaluator():
         return (fig_p, fig_a)
 
     def evaluate_hr(self, bins=25):
-        pleth, abp = self._hr[:, 0] * 60, self._hr[:, 1] * 60
+        pleth, abp = self._hr[:, 0], self._hr[:, 1]
         min_ = np.min((pleth, abp)) - 10
         max_ = np.max((pleth, abp)) + 10
         fig = histogram3d(pleth, abp, range_=[[min_, max_], [min_, max_]], title='Heart Rate', bins=bins)
-        fig.update_scenes(xaxis_range=[min_, max_],
-                          yaxis_range=[min_, max_],
-                          yaxis_autorange='reversed')
+        fig.update_scenes(yaxis_range=[max_, min_],
+                          xaxis_range=[min_, max_],
+                         )
         return fig
-
-    def percent_dropped(self):
-        return self._n_excluded / (len(self._sim) + self._n_excluded)
