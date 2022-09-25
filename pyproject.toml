@@ -21,6 +21,9 @@ scipy = "^1.9.1"
 neurokit2 = "==0.2.0"
 heartpy = "==1.2.7"
 wfdb = "==3.4.1"
+ipywidgets = "==7.7.1"
+jupyterlab-widgets = "==1.1.1"
+widgetsnbextension = "==3.6.1"
 
 [build-system]
 requires = ["poetry-core"]

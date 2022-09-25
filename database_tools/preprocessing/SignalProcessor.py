@@ -183,7 +183,8 @@ class SignalProcessor():
                 valid = False
         elif (f0 < f0_low).any() | (f0 > f0_high).any():
             valid = False
-        # TODO Implement bp survival check
+        elif ( (min_ < 40) | (min_ > 100) ) | ( (max_ > 170) | (max_ < 80)):
+            valid = False
 
         if valid:
             # Normalize ppg.

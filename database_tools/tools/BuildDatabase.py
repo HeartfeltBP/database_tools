@@ -39,7 +39,8 @@ class BuildDatabase():
             n_samples += 1
 
             if (n_samples % self._samples_per_file) == 0:
-                outfile = self._output_dir + f'mimic3/mimic3_{int(n_samples / self._samples_per_file) - 1}.jsonlines'
+                file_number = str(int(n_samples / self._samples_per_file) - 1).zfill(7)
+                outfile = self._output_dir + f'mimic3/mimic3_{file_number}.jsonlines'
                 self._write_to_jsonlines(samples, outfile)
                 samples = ''
                 if n_samples >= self._max_samples:
