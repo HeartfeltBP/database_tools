@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import pandas as pd
 from shutil import rmtree
@@ -55,16 +56,19 @@ class SignalProcessor():
         f0_low=config['f0_low']
         f0_high=config['f0_high']
 
+        random.shuffle(self._files)
         for i, f in enumerate(self._files):
+            print(f)
             # Download data
             out = self._get_data(f)
             if out == False:
                 continue
             else:
                 ppg, abp = out[0], out[1]
+            yield ppg, abp
 
             # Apply bandpass filter to ppg
-            ppg = bandpass(ppg, low=low, high=high, fs=self._fs)
+            # ppg = bandpass(ppg, low=low, high=high, fs=self._fs)
 
             overlap = int(self._fs / 2)
             l = self._win_len + overlap
@@ -188,7 +192,7 @@ class SignalProcessor():
 
         if valid:
             # Normalize ppg.
-            p = normalize(p)
+            # p = normalize(p)
             return (
                 [
                  valid,

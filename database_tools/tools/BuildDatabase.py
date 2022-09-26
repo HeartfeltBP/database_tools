@@ -31,20 +31,23 @@ class BuildDatabase():
             fs=self._fs,
         )
 
-        samples = ''
+        # samples = ''
+        samples = []
         n_samples = 0
         print('Starting sample generator...')
         for ppg, abp in tqdm(sample_gen.run(config=self._config), total=self._max_samples):
-            samples += json.dumps(dict(ppg=ppg.tolist(), abp=abp.tolist())) + '\n'
+            # samples += json.dumps(dict(ppg=ppg.tolist(), abp=abp.tolist())) + '\n'
+            samples.append([ppg, abp])
             n_samples += 1
 
             if (n_samples % self._samples_per_file) == 0:
                 file_number = str(int(n_samples / self._samples_per_file) - 1).zfill(7)
                 outfile = self._output_dir + f'mimic3/mimic3_{file_number}.jsonlines'
-                self._write_to_jsonlines(samples, outfile)
-                samples = ''
+                # self._write_to_jsonlines(samples, outfile)
+                # samples = ''
                 if n_samples >= self._max_samples:
-                    break
+                    # break
+                    return samples
 
         print('Saving stats...')
         sample_gen.save_stats(self._output_dir + 'mimic3_stats.csv')

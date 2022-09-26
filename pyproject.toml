@@ -24,6 +24,7 @@ wfdb = "==3.4.1"
 ipywidgets = "==7.7.1"
 jupyterlab-widgets = "==1.1.1"
 widgetsnbextension = "==3.6.1"
+pymongo = "==4.2.0"
 
 [build-system]
 requires = ["poetry-core"]
