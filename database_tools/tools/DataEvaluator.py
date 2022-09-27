@@ -40,9 +40,25 @@ class DataEvaluator():
         figs['hr'] = self.evaluate_hr()
         return figs
 
-    def evaluate_sim(self, bins=50):
+    def evaluate_sim(self, bins=30):
         ppg, abp = self._sim[:, 0], self._sim[:, 1]
-        fig = histogram3d(ppg, abp, range_=[[0, 1], [0, 1]], title='Similarity', bins=bins)
+        fig = histogram3d(ppg, abp, range_=[[0, 1], [0, 1]], bins=bins)
+        fig.update_layout(
+                title={
+                    'text': 'PPG, ABP Similarity Histogram',
+                    'font': {'size': 35},
+                },
+                scene=dict(
+                    xaxis={'title': 'Time Similarity (rₜ)', 'titlefont':{'size': 20}},
+                    yaxis={'title': 'Spectral Similarity (r𝓌)', 'titlefont':{'size': 20}},
+                    zaxis={'title': 'Number of Samples', 'titlefont':{'size': 20}},
+                ),
+                font={
+                    'family': 'Courier New, monospace',
+                    'color' : '#000000',
+                    'size'  : 12,
+                },
+        )
         fig.update_scenes(yaxis_autorange='reversed')
         return fig
 
@@ -51,7 +67,19 @@ class DataEvaluator():
         abp_snr = pd.Series(self._snr[:, 1])
         abp_snr[abp_snr < -30] = -30
         fig_p  = ppg_snr.plot.hist(nbins=bins)
+        fig_p.update_layout(
+            title='PPG Signal-to-Noise Ratio Histogram',
+            xaxis={'title': 'PPG SNR (dB)'},
+            yaxis={'title': 'Number of Samples'},
+            showlegend=False,
+        ) 
         fig_a = abp_snr.plot.hist(nbins=bins)
+        fig_a.update_layout(
+            title='ABP Signal-to-Noise Ratio Histogram',
+            xaxis={'title': 'ABP SNR (dB)'},
+            yaxis={'title': 'Number of Samples'},
+            showlegend=False,
+        ) 
         return (fig_p, fig_a)
 
     def evaluate_hr(self, bins=25):
@@ -63,7 +91,23 @@ class DataEvaluator():
 
         min_ = np.min([np.min(ppg), np.min(abp)]) - 10
         max_ = np.max([np.max(ppg), np.max(abp)]) + 10
-        fig = histogram3d(ppg, abp, range_=[[min_, max_], [min_, max_]], title='Heart Rate', bins=bins)
+        fig = histogram3d(ppg, abp, range_=[[min_, max_], [min_, max_]], bins=bins)
+        fig.update_layout(
+                title={
+                    'text': 'PPG, ABP HR Histogram',
+                    'font': {'size': 35},
+                },
+                scene=dict(
+                    xaxis={'title': 'PPG Heart Rate', 'titlefont':{'size': 20}},
+                    yaxis={'title': 'ABP Heart Rate', 'titlefont':{'size': 20}},
+                    zaxis={'title': 'Number of Samples', 'titlefont':{'size': 20}},
+                ),
+                font={
+                    'family': 'Courier New, monospace',
+                    'color' : '#000000',
+                    'size'  : 12,
+                },
+        )
         fig.update_scenes(yaxis_range=[max_, min_],
                           xaxis_range=[min_, max_],
                          )

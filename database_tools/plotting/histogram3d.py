@@ -67,7 +67,7 @@ def _get_plotly_mesh3d(x, y, range_, bins=5, bargap=0.05):
     X, Y, Z = vertices.T
     return X, Y, Z, I, J, K
 
-def histogram3d(x, y, range_, title='3D Histogram', bins=50):
+def histogram3d(x, y, range_, bins=50):
     X, Y, Z, I, J, K = _get_plotly_mesh3d(x, y, range_, bins=bins, bargap=0)
 
     lighting = go.mesh3d.Lighting(
@@ -79,20 +79,21 @@ def histogram3d(x, y, range_, title='3D Histogram', bins=50):
     mesh3d = go.Mesh3d(
         x=X, y=Y, z=Z,
         i=I, j=J, k=K,
-        color="#ba2461",
+        colorscale='Viridis',
+        intensity=np.linspace(0, 1, len(X), endpoint=True),
         flatshading=False,
         lighting=lighting,
     )
     layout = go.Layout(width=1000, 
                        height=1000, 
-                       title_text=title, 
-                       title_x=0.5,
                        scene=dict(
                                   camera_eye_x=-1.0, 
                                   camera_eye_y=1.25,
                                   camera_eye_z=1.25,
                                  ),
                        yaxis={'autorange': False},
+                       xaxis={},
+                       font={},
                        )
     fig = go.Figure(data=[mesh3d], layout=layout)
     return fig
