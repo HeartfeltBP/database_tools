@@ -11,14 +11,17 @@ class SignalProcessor():
     def __init__(
         self,
         files,
-        win_len=1024,
-        fs=125,
+        samples_per_patient,
+        win_len,
+        fs,
     ):
         self._files = files
+        self._samples_per_patient = samples_per_patient
         self._win_len = win_len
         self._fs = fs
 
         # Metric tracking
+        self._mrn     = []
         self._val     = []
         self._t_sim   = []
         self._f_sim   = []
@@ -55,20 +58,28 @@ class SignalProcessor():
         hr_diff=config['hr_diff']
         f0_low=config['f0_low']
         f0_high=config['f0_high']
+        abp_min_bounds=config['abp_min_bounds']
+        abp_max_bounds=config['abp_max_bounds']
 
         random.shuffle(self._files)
+        mrn = 'start'
         for i, f in enumerate(self._files):
-            print(f)
+            last_mrn = mrn
+            mrn = f.split('/')[-2]
+            if last_mrn != mrn:
+                n = 0  # int to count per patient samples
+            elif n == self._samples_per_patient:
+                continue
+
             # Download data
             out = self._get_data(f)
             if out == False:
                 continue
             else:
                 ppg, abp = out[0], out[1]
-            yield ppg, abp
 
             # Apply bandpass filter to ppg
-            # ppg = bandpass(ppg, low=low, high=high, fs=self._fs)
+            ppg = bandpass(ppg, low=low, high=high, fs=self._fs)
 
             overlap = int(self._fs / 2)
             l = self._win_len + overlap
@@ -80,6 +91,7 @@ class SignalProcessor():
 
                 # Signal level cleaning
                 out = self._signal_level_check(
+                    mrn=mrn,
                     p=p,
                     a=a,
                     low=low,
@@ -90,22 +102,28 @@ class SignalProcessor():
                     hr_diff=hr_diff,
                     f0_low=f0_low,
                     f0_high=f0_high,
+                    abp_min_bounds=abp_min_bounds,
+                    abp_max_bounds=abp_max_bounds,
                 )
 
                 # Add window if valid is True
                 if not out[0][0]:
                     self._append_metrics(out[0])
                 else:
+                    n += 1
                     self._append_metrics(out[0])
                     yield (out[1][0], out[1][1])
-            rmtree('physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
 
-            # TODO Final dividing of windows before output
+                # Move to next segment when patient fills up
+                if n == self._samples_per_patient:
+                    break
+            rmtree('physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
         return
 
     def save_stats(self, path):
         df = pd.DataFrame(
             dict(
+                mrn=self._mrn,
                 valid=self._val,
                 time_similarity=self._t_sim,
                 spectral_similarity=self._f_sim,
@@ -140,6 +158,7 @@ class SignalProcessor():
 
     def _signal_level_check(
         self,
+        mrn,
         p,
         a,
         low,
@@ -149,7 +168,9 @@ class SignalProcessor():
         snr_t,
         hr_diff,
         f0_low,
-        f0_high
+        f0_high,
+        abp_min_bounds,
+        abp_max_bounds,
     ):
         # Align signals in time (output is win_len samples long)
         p, a = align_signals(p, a, win_len=self._win_len)
@@ -187,14 +208,15 @@ class SignalProcessor():
                 valid = False
         elif (f0 < f0_low).any() | (f0 > f0_high).any():
             valid = False
-        elif ( (min_ < 40) | (min_ > 100) ) | ( (max_ > 170) | (max_ < 80)):
+        elif ( ~np.isin(min_, abp_min_bounds).all() | ~np.isin(max_, abp_max_bounds) ):
             valid = False
 
         if valid:
             # Normalize ppg.
-            # p = normalize(p)
+            p = normalize(p)
             return (
                 [
+                 mrn,
                  valid,
                  float(time_sim),
                  float(spec_sim),
@@ -210,6 +232,7 @@ class SignalProcessor():
         else:
             return (
                 [
+                 mrn,
                  valid,
                  float(time_sim),
                  float(spec_sim),
@@ -224,12 +247,13 @@ class SignalProcessor():
             )
 
     def _append_metrics(self, data):
-        self._val.append(data[0])
-        self._t_sim.append(data[1])
-        self._f_sim.append(data[2])
-        self._ppg_snr.append(data[3])
-        self._abp_snr.append(data[4])
-        self._ppg_hr.append(data[5])
-        self._abp_hr.append(data[6])
-        self._abp_min.append(data[7])
-        self._abp_max.append(data[8])
+        self._mrn.append(data[0])
+        self._val.append(data[1])
+        self._t_sim.append(data[2])
+        self._f_sim.append(data[3])
+        self._ppg_snr.append(data[4])
+        self._abp_snr.append(data[5])
+        self._ppg_hr.append(data[6])
+        self._abp_hr.append(data[7])
+        self._abp_min.append(data[8])
+        self._abp_max.append(data[9])
