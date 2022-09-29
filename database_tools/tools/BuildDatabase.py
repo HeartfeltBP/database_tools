@@ -29,6 +29,7 @@ class BuildDatabase():
 
         sample_gen = SignalProcessor(
             files=valid_segs['url'],
+            samples_per_patient=self._samples_per_patient,
             win_len=self._win_len,
             fs=self._fs,
         )

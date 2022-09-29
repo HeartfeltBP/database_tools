@@ -106,8 +106,8 @@ class SignalProcessor():
                     abp_max_bounds=abp_max_bounds,
                 )
 
-                # Add window if valid is True
-                if not out[0][0]:
+                # Add window if 'valid' is True
+                if not out[0][1]:
                     self._append_metrics(out[0])
                 else:
                     n += 1
