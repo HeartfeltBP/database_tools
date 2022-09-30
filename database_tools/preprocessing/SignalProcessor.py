@@ -197,19 +197,23 @@ class SignalProcessor():
         max_ = np.max(a)
 
         # Check similarity, snr, f0, and bp
-        valid = True
-        if (time_sim < sim1) | (spec_sim < sim1):
-            valid = False
-        elif (snr_p < snr_t) | (snr_a < snr_t):
-            if (time_sim < sim2) | (spec_sim < sim2):
-                valid = False
-        elif np.abs(f0_p - f0_a) > hr_diff:
-            if (time_sim < sim2) | (spec_sim < sim2):
-                valid = False
+        valid = False
+        if np.nan in [time_sim, spec_sim, snr_p, snr_a, f0_p, f0_a, min_, max_]:
+            pass
+        elif (time_sim < sim1) | (spec_sim < sim1):
+            pass
+        elif ( (snr_p < snr_t) | (snr_a < snr_t) ) & ( (time_sim < sim2) | (spec_sim < sim2) ):
+            pass
+        elif ( np.abs(f0_p - f0_a) > hr_diff ) & ( (time_sim < sim2) | (spec_sim < sim2) ):
+            pass
         elif (f0 < f0_low).any() | (f0 > f0_high).any():
-            valid = False
-        elif ( ~np.isin(min_, abp_min_bounds).all() | ~np.isin(max_, abp_max_bounds) ):
-            valid = False
+            pass
+        elif (min_ < abp_min_bounds[0]) | (max_ > abp_max_bounds[1]):
+            pass
+        elif (max_ < abp_max_bounds[0]) | (max_ > abp_max_bounds[1]):
+            pass
+        else:
+            valid = True
 
         if valid:
             # Normalize ppg.
