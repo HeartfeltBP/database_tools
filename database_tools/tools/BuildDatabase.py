@@ -59,6 +59,6 @@ class BuildDatabase():
         return df
 
     def _write_to_jsonlines(self, output, outfile):
-        print(f'Writing to {outfile}')
+        # print(f'Writing to {outfile}')
         with open(outfile, 'w') as f:
             f.write(output)

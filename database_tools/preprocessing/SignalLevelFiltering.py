@@ -88,13 +88,78 @@ def get_similarity(x, y):
             coef = 0
     return coef
 
-# def get_snr(x, low=0.5, high=8.0, fs=125):
+def get_snr(x, low=0.5, high=8.0, df=0.2, fs=125):
+    """
+    Calculate the Signal-to-noise ratio (SNR) of the cardiac signal.
+    Density of spectrum between low and high frequencies is considered
+    signal power. Density of spectrum outside low to high frequency
+    band is considered signal noise. F0 is estimated to be the frequency
+    at which the power spectrum is at its maximum.
+
+    Args:
+        x (np.ndarray): Cardiac signal data.
+        low (float, optional): Lower frequency in Hz. Defaults to 0.5.
+        high (float, optional): Upper frequency in Hz. Defaults to 8.0.
+        fs (int, optional): Sampling rate of signal. Defaults to 125.
+
+    Returns:
+        snr (float): SNR of signal in dB.
+        f0 (float): Fundamental frequency of signal in Hz.
+    """
+    # Estimate spectral power density
+    freqs, psd = signal.periodogram(x, fs, nfft=2048)
+    f0 = freqs[np.argmax(psd)]
+    freq_res = freqs[1] - freqs[0]
+
+    # Signal power
+    idx_sig_fund = np.logical_and(freqs >= f0 - df, freqs <= f0 + df)
+    idx_sig_harm1 = np.logical_and(freqs >= (2 * f0) - df, freqs <= (2 * f0) + df)
+    idx_sig_harm2 = np.logical_and(freqs >= (3 * f0) - df, freqs <= (3 * f0) + df)
+
+    if (idx_sig_fund == False).all():
+        p_sig_fund = 0
+    else:
+        p_sig_fund = integrate.simps(psd[idx_sig_fund], dx=freq_res)
+
+
+    if (idx_sig_harm1 != False).all():
+        p_sig_harm1 = 0
+    else:
+        p_sig_harm1 = integrate.simps(psd[idx_sig_harm1], dx=freq_res)
+
+
+    if (idx_sig_harm2 != False).all():
+        p_sig_harm2 = 0
+    else:
+        p_sig_harm2 = integrate.simps(psd[idx_sig_harm2], dx=freq_res)
+
+    p_sig = p_sig_fund + p_sig_harm1 + p_sig_harm2
+
+    # Noise power
+    idx_cardiac = np.logical_and(freqs >= low, freqs <= high)
+
+    if (idx_cardiac != False).all():
+        p_cardiac = 0
+    else:
+        p_cardiac = integrate.simps(psd[idx_cardiac], dx=freq_res)
+
+    p_noise = p_cardiac - p_sig
+
+    # Try, except to prevent divide by 0 error
+    with np.errstate(divide='ignore', invalid='ignore'):
+        try:
+            # Find SNR and convert to dB
+            snr = 10 * np.log10(p_sig / p_noise)
+        except (ZeroDivisionError, RuntimeWarning):
+            snr = -10
+    return snr, f0
+
+# def get_snr(x, low=0.5, high=0.8, fs=125):
 #     """
 #     Calculate the Signal-to-noise ratio (SNR) of the cardiac signal.
 #     Density of spectrum between low and high frequencies is considered
 #     signal power. Density of spectrum outside low to high frequency
-#     band is considered signal noise. F0 is estimated to be the frequency
-#     at which the power spectrum is at its maximum.
+#     band is considered signal noise.
 
 #     Args:
 #         x (np.ndarray): Cardiac signal data.
@@ -104,31 +169,31 @@ def get_similarity(x, y):
 
 #     Returns:
 #         snr (float): SNR of signal in dB.
-#         f0 (float): Fundamental frequency of signal in Hz.
 #     """
 #     # Estimate spectral power density
 #     freqs, psd = signal.welch(x, fs)
-#     f0 = freqs[np.argmax(psd)]
 #     freq_res = freqs[1] - freqs[0]
 
 #     # Signal power
-#     idx_sig_fund = np.logical_and(freqs >= f0 - .1, freqs <= f0 + .1)
-#     idx_sig_harm1 = np.logical_and(freqs >= (2 * f0) - .1, freqs <= (2 * f0) + .1)
-#     idx_sig_harm2 = np.logical_and(freqs >= (3 * f0) - .1, freqs <= (3 * f0) + .1)
-#     if (idx_sig_fund == False).all() & (idx_sig_harm1 == False).all() & (idx_sig_harm2 == False).all():
+#     idx_sig = np.logical_and(freqs >= low, freqs <= high)
+#     if (idx_sig == False).all():
 #         return 0
 #     else:
-#         p_sig_fund = integrate.simps(psd[idx_sig_fund], dx=freq_res)
-#         p_sig_harm1 = integrate.simps(psd[idx_sig_harm1], dx=freq_res)
-#         p_sig_harm2 = integrate.simps(psd[idx_sig_harm2], dx=freq_res)
-#         p_sig = p_sig_fund + p_sig_harm1 + p_sig_harm2
+#         p_sig = integrate.simps(psd[idx_sig], dx=freq_res)
 
 #     # Noise power
-#     idx_cardiac = np.logical_and(freqs >= low, freqs <= high)
-#     if (idx_cardiac == False).all():
-#         return 0
-#     p_cardiac = integrate.simps(psd[idx_cardiac], dx=freq_res)
-#     p_noise = p_cardiac - p_sig
+#     idx_noise_low = freqs < low
+#     if (idx_noise_low == False).all():
+#         p1 = 0
+#     else:
+#         p1 = integrate.simps(psd[idx_noise_low], dx=freq_res)
+
+#     idx_noise_high = freqs > high
+#     if (idx_noise_high == False).all():
+#         p1 = 0
+#     else:
+#         p2 = integrate.simps(psd[idx_noise_high], dx=freq_res)
+#     p_noise = p1 + p2
 
 #     # Try, except to prevent divide by 0 error
 #     with np.errstate(divide='ignore', invalid='ignore'):
@@ -139,76 +204,26 @@ def get_similarity(x, y):
 #             snr = 0
 #     return snr
 
-def get_snr(x, low=0.5, high=0.8, fs=125):
-    """
-    Calculate the Signal-to-noise ratio (SNR) of the cardiac signal.
-    Density of spectrum between low and high frequencies is considered
-    signal power. Density of spectrum outside low to high frequency
-    band is considered signal noise.
+# def get_f0(x, fs=125):
+#     """
+#     Calculate fundamental frequency (f0) of signal via
+#     number of 0 crossing and sampling rate.
 
-    Args:
-        x (np.ndarray): Cardiac signal data.
-        low (float, optional): Lower frequency in Hz. Defaults to 0.5.
-        high (float, optional): Upper frequency in Hz. Defaults to 0.8.
-        fs (int, optional): Sampling rate of signal. Defaults to 125.
+#     Args:
+#         x (np.ndarray): Signal data. 
+#         fs (int, optional): Sampling rate of signal. Defaults to 125.
 
-    Returns:
-        snr (float): SNR of signal in dB.
-    """
-    # Estimate spectral power density
-    freqs, psd = signal.welch(x, fs)
-    freq_res = freqs[1] - freqs[0]
+#     Returns:
+#         f0 (float): Fundamental frequency in Hz.
+#     """
+#     indices = np.nonzero((x[1:] >= 0) & (x[:-1] < 0))[0]
+#     crossings = [i - x[i] / (x[i+1] - x[i]) for i in indices]
 
-    # Signal power
-    idx_sig = np.logical_and(freqs >= low, freqs <= high)
-    if (idx_sig == False).all():
-        return 0
-    else:
-        p_sig = integrate.simps(psd[idx_sig], dx=freq_res)
-
-    # Noise power
-    idx_noise_low = freqs < low
-    if (idx_noise_low == False).all():
-        p1 = 0
-    else:
-        p1 = integrate.simps(psd[idx_noise_low], dx=freq_res)
-
-    idx_noise_high = freqs > high
-    if (idx_noise_high == False).all():
-        p1 = 0
-    else:
-        p2 = integrate.simps(psd[idx_noise_high], dx=freq_res)
-    p_noise = p1 + p2
-
-    # Try, except to prevent divide by 0 error
-    with np.errstate(divide='ignore', invalid='ignore'):
-        try:
-            # Find SNR and convert to dB
-            snr = 10 * np.log10(p_sig / p_noise)
-        except (ZeroDivisionError, RuntimeWarning):
-            snr = 0
-    return snr
-
-def get_f0(x, fs=125):
-    """
-    Calculate fundamental frequency (f0) of signal via
-    number of 0 crossing and sampling rate.
-
-    Args:
-        x (np.ndarray): Signal data. 
-        fs (int, optional): Sampling rate of signal. Defaults to 125.
-
-    Returns:
-        f0 (float): Fundamental frequency in Hz.
-    """
-    indices = np.nonzero((x[1:] >= 0) & (x[:-1] < 0))[0]
-    crossings = [i - x[i] / (x[i+1] - x[i]) for i in indices]
-
-    # Divide by 0 warnings expected
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', category=RuntimeWarning)
-        try:
-            f0 = fs / np.mean(np.diff(crossings))
-        except (ZeroDivisionError, RuntimeWarning):
-            f0 = 0
-    return f0
+#     # Divide by 0 warnings expected
+#     with warnings.catch_warnings():
+#         warnings.simplefilter('ignore', category=RuntimeWarning)
+#         try:
+#             f0 = fs / np.mean(np.diff(crossings))
+#         except (ZeroDivisionError, RuntimeWarning):
+#             f0 = 0
+#     return f0

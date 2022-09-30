@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from shutil import rmtree
 from wfdb import rdrecord
-from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, get_f0
+from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr
 from database_tools.preprocessing.Utils import download, window, normalize
 
 
@@ -54,6 +54,7 @@ class SignalProcessor():
         high=config['high']
         sim1=config['sim1']
         sim2=config['sim2']
+        df=config['df']
         snr_t=config['snr_t']
         hr_diff=config['hr_diff']
         f0_low=config['f0_low']
@@ -98,6 +99,7 @@ class SignalProcessor():
                     high=high,
                     sim1=sim1,
                     sim2=sim2,
+                    df=df,
                     snr_t=snr_t,
                     hr_diff=hr_diff,
                     f0_low=f0_low,
@@ -165,6 +167,7 @@ class SignalProcessor():
         high,
         sim1,
         sim2,
+        df,
         snr_t,
         hr_diff,
         f0_low,
@@ -183,13 +186,9 @@ class SignalProcessor():
         a_f = np.abs(np.fft.fft(bandpass(a, low=low, high=high, fs=self._fs)))
         spec_sim = get_similarity(p_f, a_f)
 
-        # Get SNR
-        snr_p = get_snr(p, low=low, high=high, fs=self._fs)
-        snr_a = get_snr(a, low=low, high=high, fs=self._fs)
-
-        # Get fundamental frequencies
-        f0_p = get_f0(p, fs=self._fs)
-        f0_a = get_f0(a - np.mean(a), fs=self._fs)
+        # Get SNR & fundamental frequencies
+        snr_p, f0_p = get_snr(p, low=low, high=high, df=df, fs=self._fs)
+        snr_a, f0_a = get_snr(a, low=low, high=high, df=df, fs=self._fs)
         f0 = np.array([f0_p, f0_a])
 
         # Get min, max abp
