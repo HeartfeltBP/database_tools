@@ -4,7 +4,7 @@ from database_tools.plotting import histogram3d
 
 pd.options.plotting.backend = 'plotly'
 
-# TODO Add plot titles
+
 class DataEvaluator():
     def __init__(self, stats):
         self._stats = stats
@@ -58,6 +58,7 @@ class DataEvaluator():
                     'color' : '#000000',
                     'size'  : 12,
                 },
+                template='plotly_dark',
         )
         fig.update_scenes(yaxis_autorange='reversed')
         return fig
@@ -65,13 +66,14 @@ class DataEvaluator():
     def evaluate_snr(self, bins=100):
         ppg_snr = pd.Series(self._snr[:, 0])
         abp_snr = pd.Series(self._snr[:, 1])
-        abp_snr[abp_snr < -30] = -30
+        abp_snr[abp_snr < -30] = -30  # modify extreme values for plotting
         fig_p  = ppg_snr.plot.hist(nbins=bins)
         fig_p.update_layout(
             title='PPG Signal-to-Noise Ratio Histogram',
             xaxis={'title': 'PPG SNR (dB)'},
             yaxis={'title': 'Number of Samples'},
             showlegend=False,
+            template='plotly_dark',
         ) 
         fig_a = abp_snr.plot.hist(nbins=bins)
         fig_a.update_layout(
@@ -79,6 +81,7 @@ class DataEvaluator():
             xaxis={'title': 'ABP SNR (dB)'},
             yaxis={'title': 'Number of Samples'},
             showlegend=False,
+            template='plotly_dark',
         ) 
         return (fig_p, fig_a)
 
@@ -107,8 +110,10 @@ class DataEvaluator():
                     'color' : '#000000',
                     'size'  : 12,
                 },
+                template='plotly_dark',
         )
-        fig.update_scenes(yaxis_range=[max_, min_],
-                          xaxis_range=[min_, max_],
-                         )
+        fig.update_scenes(
+            yaxis_range=[max_, min_],
+            xaxis_range=[min_, max_],
+        )
         return fig

@@ -88,7 +88,7 @@ def get_similarity(x, y):
             coef = 0
     return coef
 
-def get_snr(x, low=0.5, high=8.0, df=0.2, fs=125):
+def get_snr(x, low, high, df, fs):
     """
     Calculate the Signal-to-noise ratio (SNR) of the cardiac signal.
     Density of spectrum between low and high frequencies is considered
@@ -98,9 +98,10 @@ def get_snr(x, low=0.5, high=8.0, df=0.2, fs=125):
 
     Args:
         x (np.ndarray): Cardiac signal data.
-        low (float, optional): Lower frequency in Hz. Defaults to 0.5.
-        high (float, optional): Upper frequency in Hz. Defaults to 8.0.
-        fs (int, optional): Sampling rate of signal. Defaults to 125.
+        low (float): Lower frequency in Hz.
+        high (float): Upper frequency in Hz.
+        df (float): Delta f for calculating power.
+        fs (int): Sampling rate of signal.
 
     Returns:
         snr (float): SNR of signal in dB.
@@ -108,41 +109,40 @@ def get_snr(x, low=0.5, high=8.0, df=0.2, fs=125):
     """
     # Estimate spectral power density
     freqs, psd = signal.periodogram(x, fs, nfft=2048)
-    f0 = freqs[np.argmax(psd)]
+    # f0 = freqs[np.argmax(psd)]
+    f0, f1, f2 = freqs[np.sort(np.argpartition(psd, -3)[-3:])]
     freq_res = freqs[1] - freqs[0]
 
     # Signal power
+    # idx_sig_fund = np.logical_and(freqs >= f0 - df, freqs <= f0 + df)
+    # idx_sig_harm1 = np.logical_and(freqs >= (2 * f0) - df, freqs <= (2 * f0) + df)
+    # idx_sig_harm2 = np.logical_and(freqs >= (3 * f0) - df, freqs <= (3 * f0) + df)
     idx_sig_fund = np.logical_and(freqs >= f0 - df, freqs <= f0 + df)
-    idx_sig_harm1 = np.logical_and(freqs >= (2 * f0) - df, freqs <= (2 * f0) + df)
-    idx_sig_harm2 = np.logical_and(freqs >= (3 * f0) - df, freqs <= (3 * f0) + df)
+    idx_sig_harm1 = np.logical_and(freqs >= f1 - df, freqs <= f1 + df)
+    idx_sig_harm2 = np.logical_and(freqs >= f2 - df, freqs <= f2 + df)
 
-    if (idx_sig_fund == False).all():
-        p_sig_fund = 0
-    else:
+    # Try statements are easiest way of preventing errors during integration
+    try:
         p_sig_fund = integrate.simps(psd[idx_sig_fund], dx=freq_res)
-
-
-    if (idx_sig_harm1 != False).all():
-        p_sig_harm1 = 0
-    else:
+    except:
+        p_sig_fund = 0
+    try:
         p_sig_harm1 = integrate.simps(psd[idx_sig_harm1], dx=freq_res)
-
-
-    if (idx_sig_harm2 != False).all():
-        p_sig_harm2 = 0
-    else:
+    except:
+        p_sig_harm1 = 0
+    try:
         p_sig_harm2 = integrate.simps(psd[idx_sig_harm2], dx=freq_res)
-
+    except:
+        p_sig_harm2 = 0
     p_sig = p_sig_fund + p_sig_harm1 + p_sig_harm2
 
     # Noise power
     idx_cardiac = np.logical_and(freqs >= low, freqs <= high)
 
-    if (idx_cardiac != False).all():
-        p_cardiac = 0
-    else:
+    try:
         p_cardiac = integrate.simps(psd[idx_cardiac], dx=freq_res)
-
+    except:
+        p_cardiac = 0
     p_noise = p_cardiac - p_sig
 
     # Try, except to prevent divide by 0 error
