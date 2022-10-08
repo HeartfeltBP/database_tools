@@ -9,19 +9,23 @@ config = dict(
     high=8.0,
     sim1=0.7,
     sim2=0.9,
-    snr_t=20,
+    df=0.2,
+    snr_t=3.0,
     hr_diff=1/6,
     f0_low=0.667,
     f0_high=3.0,
+    abp_min_bounds=[40, 100],
+    abp_max_bounds=[70, 190],
 )
 
 worker = BuildDatabase(
-    output_dir='data-2022-09-23/',
+    output_dir='data-2022-10-07/',
     config=config,
-    win_len=1024,
+    win_len=256,
     fs=125,
-    samples_per_file=5000,
-    max_samples=10000,
+    samples_per_file=2500,
+    samples_per_patient=500,
+    max_samples=300000,
     data_dir='physionet.org/files/mimic3wdb/1.0/',
 )
 
