@@ -8,7 +8,7 @@ readme = "README.md"
 packages = [{include = "database_tools"}]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.12"
+python = ">=3.10,<3.11"
 numpy = "^1.23.2"
 pandas = "^1.4.4"
 jupyter = "^1.0.0"
