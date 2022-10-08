@@ -15,6 +15,7 @@ def bandpass(x, low=0.5, high=8.0, fs=125):
     Returns:
         x (np.ndarray): Filtered signal.
     """
+    # TODO Test results of butterworth vs cheby2
     # # 4th order butterworth filter
     # btr = signal.butter(
     #     4,
@@ -109,14 +110,18 @@ def get_snr(x, low, high, df, fs):
     """
     # Estimate spectral power density
     freqs, psd = signal.periodogram(x, fs, nfft=2048)
-    # f0 = freqs[np.argmax(psd)]
-    f0, f1, f2 = freqs[np.sort(np.argpartition(psd, -3)[-3:])]
     freq_res = freqs[1] - freqs[0]
 
+    dpdf = np.diff(psd) / np.diff(freqs)
+    peak_idx = np.where(np.diff(np.sign(dpdf)))[0] + 1
+    peak_x = freqs[peak_idx]
+    f_idx = np.sort(np.argpartition(psd[peak_idx], -3)[-3:])
+    try:
+        f0, f1, f2 = peak_x[f_idx]
+    except:
+        return -10, 0
+
     # Signal power
-    # idx_sig_fund = np.logical_and(freqs >= f0 - df, freqs <= f0 + df)
-    # idx_sig_harm1 = np.logical_and(freqs >= (2 * f0) - df, freqs <= (2 * f0) + df)
-    # idx_sig_harm2 = np.logical_and(freqs >= (3 * f0) - df, freqs <= (3 * f0) + df)
     idx_sig_fund = np.logical_and(freqs >= f0 - df, freqs <= f0 + df)
     idx_sig_harm1 = np.logical_and(freqs >= f1 - df, freqs <= f1 + df)
     idx_sig_harm2 = np.logical_and(freqs >= f2 - df, freqs <= f2 + df)

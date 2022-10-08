@@ -187,6 +187,12 @@ class SignalProcessor():
         spec_sim = get_similarity(p_f, a_f)
 
         # Get SNR & fundamental frequencies
+        # snr_p = get_snr(p, low=low, high=high, fs=self._fs)
+        # snr_a = get_snr(a, low=low, high=high, fs=self._fs)
+
+        # f0_p = get_f0(p, fs=self._fs)
+        # f0_a = get_f0(a - np.mean(a), fs=self._fs)
+
         snr_p, f0_p = get_snr(p, low=low, high=high, df=df, fs=self._fs)
         snr_a, f0_a = get_snr(a, low=0, high=self._fs / 2, df=df, fs=self._fs)
         f0 = np.array([f0_p, f0_a])

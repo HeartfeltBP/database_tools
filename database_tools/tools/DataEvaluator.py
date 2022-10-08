@@ -35,8 +35,8 @@ class DataEvaluator():
         figs = {}
         figs['sim'] = self.evaluate_sim()
         fig_p, fig_a = self.evaluate_snr()
-        figs['snr_ppg'] = fig_p
-        figs['snr_abp'] = fig_a
+        figs['ppg_snr'] = fig_p
+        figs['abp_snr'] = fig_a
         figs['hr'] = self.evaluate_hr()
         return figs
 
@@ -55,7 +55,7 @@ class DataEvaluator():
                 ),
                 font={
                     'family': 'Courier New, monospace',
-                    'color' : '#000000',
+                    'color' : '#FFFFFF',
                     'size'  : 12,
                 },
                 template='plotly_dark',
@@ -66,7 +66,8 @@ class DataEvaluator():
     def evaluate_snr(self, bins=100):
         ppg_snr = pd.Series(self._snr[:, 0])
         abp_snr = pd.Series(self._snr[:, 1])
-        abp_snr[abp_snr < -30] = -30  # modify extreme values for plotting
+        ppg_snr[ppg_snr < -10] = -10
+        abp_snr[abp_snr < -10] = -10  # modify extreme values for plotting
         fig_p  = ppg_snr.plot.hist(nbins=bins)
         fig_p.update_layout(
             title='PPG Signal-to-Noise Ratio Histogram',
@@ -107,7 +108,7 @@ class DataEvaluator():
                 ),
                 font={
                     'family': 'Courier New, monospace',
-                    'color' : '#000000',
+                    'color' : '#FFFFFF',
                     'size'  : 12,
                 },
                 template='plotly_dark',
