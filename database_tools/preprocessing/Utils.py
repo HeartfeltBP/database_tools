@@ -1,5 +1,5 @@
 import os
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 def download(path):
     """
@@ -43,6 +43,7 @@ def normalize(x):
     Returns:
         x_scaled (np.ndarray): Normalized signal data.
     """
-    scaler = MinMaxScaler(feature_range=(0, 1))
+    # scaler = MinMaxScaler(feature_range=(0, 1))
+    scaler = StandardScaler()
     x_scaled = scaler.fit_transform(x.reshape(-1, 1))
     return x_scaled.reshape(-1,)

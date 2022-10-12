@@ -67,7 +67,10 @@ class DataEvaluator():
         ppg_snr = pd.Series(self._snr[:, 0])
         abp_snr = pd.Series(self._snr[:, 1])
         ppg_snr[ppg_snr < -10] = -10
-        abp_snr[abp_snr < -10] = -10  # modify extreme values for plotting
+        ppg_snr[ppg_snr > 20] = 20
+        abp_snr[abp_snr > 20] = 20
+        abp_snr[abp_snr > 20] = 20 # modify extreme values for plotting
+
         fig_p  = ppg_snr.plot.hist(nbins=bins)
         fig_p.update_layout(
             title='PPG Signal-to-Noise Ratio Histogram',
