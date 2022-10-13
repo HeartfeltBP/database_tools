@@ -30,6 +30,13 @@ class DataEvaluator():
             ),
             axis=1,
         )
+        self._bp = np.concatenate(
+            (
+                np.array(self._stats['abp_max']).reshape(-1, 1),
+                np.array(self._stats['abp_min']).reshape(-1, 1),
+            ),
+            axis=1,
+        )
 
     def run(self):
         figs = {}
@@ -38,6 +45,9 @@ class DataEvaluator():
         figs['ppg_snr'] = fig_p
         figs['abp_snr'] = fig_a
         figs['hr'] = self.evaluate_hr()
+        fig_sbp, fig_dbp = self._evaluate_bp()
+        figs['sbp'] = fig_sbp
+        figs['dbp'] = fig_dbp
         return figs
 
     def evaluate_sim(self, bins=30):
@@ -121,3 +131,29 @@ class DataEvaluator():
             xaxis_range=[min_, max_],
         )
         return fig
+
+    def _evaluate_bp(self, bins=100):
+        sbp = pd.Series(self._bp[:, 0])
+        dbp = pd.Series(self._bp[:, 1])
+        # sbp[sbp < -10] = -10
+        # sbp[sbp > 20] = 20
+        # dbp[dbp > 20] = 20
+        # dbp[dbp > 20] = 20 # modify extreme values for plotting
+
+        fig_sbp  = sbp.plot.hist(nbins=bins)
+        fig_sbp.update_layout(
+            title='Systolic Blood Pressure Histogram (max by window)',
+            xaxis={'title': 'Blood Pressure (mmHg)'},
+            yaxis={'title': 'Number of Samples'},
+            showlegend=False,
+            template='plotly_dark',
+        ) 
+        fig_dbp = dbp.plot.hist(nbins=bins)
+        fig_dbp.update_layout(
+            title='Diastolic Blood Pressure Histogram (min by window)',
+            xaxis={'title': 'Blood Pressure (mmHg)'},
+            yaxis={'title': 'Number of Samples'},
+            showlegend=False,
+            template='plotly_dark',
+        ) 
+        return (fig_sbp, fig_dbp)

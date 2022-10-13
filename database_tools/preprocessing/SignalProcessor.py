@@ -212,8 +212,6 @@ class SignalProcessor():
             valid = True
 
         if valid:
-            # Normalize ppg.
-            p = normalize(p)
             return (
                 [
                  mrn,
