@@ -9,7 +9,7 @@ class RecordsHandler():
     def __init__(self, data_dir):
         self._data_dir = data_dir
 
-    def generate_records(self, split_strategy=(0.70, 0.15, 0.15), max_samples=1000):
+    def generate_records(self, split_strategy=(0.70, 0.15, 0.15), max_samples=10000):
         print('Loading data...')
         df = self._compile_lines(self._data_dir)
         ppg_set = np.array(df['ppg'].to_list())
@@ -67,7 +67,7 @@ class RecordsHandler():
                     file_number += 1
                     examples = []
         print('Done!')
-        return df
+        return
 
     def _compile_lines(self, path):
         frames = []
@@ -94,5 +94,23 @@ class RecordsHandler():
             for tf_example in examples:
                 w.write(tf_example.SerializeToString())
 
-    def read_records(self):
-        return
+    def read_records(self, n_cores, AUTOTUNE):
+        data_splits = {}
+        for split in ['train', 'val', 'test']:
+            print(f'Reading {split} split.')
+            filenames = [file for file in glob.glob(f'{self._data_dir}records/{split}/*.tfrecords')]
+            dataset = tf.data.TFRecordDataset(
+                filenames=filenames,
+                compression_type=None,
+                buffer_size=100000000,
+                num_parallel_reads=n_cores
+            )
+            data_splits[split] = dataset.map(self._full_wave_parse_window_function, num_parallel_calls=AUTOTUNE)
+        return data_splits
+
+    def _full_wave_parse_window_function(self, example_proto):
+        features = {
+            'ppg': tf.io.FixedLenFeature([256], tf.float32),
+            'abp': tf.io.FixedLenFeature([256], tf.float32),
+        }
+        return tf.io.parse_single_example(example_proto, features)
