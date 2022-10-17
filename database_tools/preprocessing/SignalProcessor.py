@@ -53,7 +53,6 @@ class SignalProcessor():
         low=config['low']
         high=config['high']
         sim1=config['sim1']
-        sim2=config['sim2']
         df=config['df']
         snr_t=config['snr_t']
         hr_diff=config['hr_diff']
@@ -98,7 +97,6 @@ class SignalProcessor():
                     low=low,
                     high=high,
                     sim1=sim1,
-                    sim2=sim2,
                     df=df,
                     snr_t=snr_t,
                     hr_diff=hr_diff,
@@ -166,7 +164,6 @@ class SignalProcessor():
         low,
         high,
         sim1,
-        sim2,
         df,
         snr_t,
         hr_diff,
@@ -202,27 +199,19 @@ class SignalProcessor():
         max_ = np.max(a)
 
         # Check similarity, snr, f0, and bp
-        valid = False
-        if np.nan in [time_sim, spec_sim, snr_p, snr_a, f0_p, f0_a, min_, max_]:
-            pass
-        elif (time_sim < sim1) | (spec_sim < sim1):
-            pass
-        elif ( (snr_p < snr_t) | (snr_a < snr_t) ) & ( (time_sim < sim2) | (spec_sim < sim2) ):
-            pass
-        elif ( np.abs(f0_p - f0_a) > hr_diff ) & ( (time_sim < sim2) | (spec_sim < sim2) ):
-            pass
-        elif (f0 < f0_low).any() | (f0 > f0_high).any():
-            pass
-        elif (min_ < abp_min_bounds[0]) | (max_ > abp_max_bounds[1]):
-            pass
-        elif (max_ < abp_max_bounds[0]) | (max_ > abp_max_bounds[1]):
-            pass
+        nan_check = np.nan in [time_sim, spec_sim, snr_p, snr_a, f0_p, f0_a, min_, max_]
+        sim_check = (time_sim < sim1) | (spec_sim < sim1)
+        snr_check = (snr_p < snr_t) | (snr_a < snr_t)
+        hrdiff_check = np.abs(f0_p - f0_a) > hr_diff
+        hr_check = (f0 < f0_low).any() | (f0 > f0_high).any()
+        dbp_check = (min_ < abp_min_bounds[0]) | (max_ > abp_max_bounds[1])
+        sbp_check = (max_ < abp_max_bounds[0]) | (max_ > abp_max_bounds[1])
+        if nan_check | sim_check | snr_check | hrdiff_check | hr_check | dbp_check | sbp_check:
+            valid = False
         else:
             valid = True
 
         if valid:
-            # Normalize ppg.
-            p = normalize(p)
             return (
                 [
                  mrn,
