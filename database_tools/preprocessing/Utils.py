@@ -35,7 +35,8 @@ def window(x, win_len, overlap):
 
 def normalize(x):
     """
-    Normalize data with sklearn MinMaxScaler.
+    TODO NOT CURRENTLY IN USE
+    Normalize data with sklearn StandardScaler or MinMaxScaler (tbd).
 
     Args:
         x (np.ndarray): Signal data.
