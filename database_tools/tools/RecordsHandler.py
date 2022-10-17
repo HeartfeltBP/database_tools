@@ -1,19 +1,34 @@
 import glob
 import numpy as np
 import pandas as pd
+import pickle as pkl
 import tensorflow as tf
 from tqdm import tqdm
+from sklearn.preprocessing import StandardScaler
 
 
 class RecordsHandler():
     def __init__(self, data_dir):
         self._data_dir = data_dir
 
-    def generate_records(self, split_strategy=(0.70, 0.15, 0.15), max_samples=10000):
+    def generate_records(self, split_strategy=(0.70, 0.15, 0.15), max_samples=10000, normalize=True):
         print('Loading data...')
         df = self._compile_lines(self._data_dir)
         ppg_set = np.array(df['ppg'].to_list())
         abp_set = np.array(df['abp'].to_list())
+
+        if normalize:
+            print('Scaling data...')
+            ppg_scaler = StandardScaler()
+            abp_scaler = StandardScaler()
+            ppg_set = ppg_scaler.fit_transform(ppg_set)
+            abp_set = abp_scaler.fit_transform(abp_set)
+
+            # Save scalers
+            with open(f'{self._data_dir}ppg_scaler.pkl', 'wb') as f:
+                pkl.dump(ppg_scaler, f)
+            with open(f'{self._data_dir}abp_scaler.pkl', 'wb') as f:
+                pkl.dump(abp_scaler, f)
 
         print('Splitting data...')
         idx = np.random.permutation(len(df))
@@ -54,7 +69,7 @@ class RecordsHandler():
             file_number = 0
             num_samples = 0
             examples = []
-            for ppg_win, abp_win in tqdm(zip(ppg, abp)):
+            for ppg_win, abp_win in tqdm(zip(ppg, abp), total=ppg.shape[0]):
                 examples.append(
                     self._full_wave_window_example(
                         ppg=ppg_win,
