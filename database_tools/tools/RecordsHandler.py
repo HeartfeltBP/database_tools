@@ -124,8 +124,13 @@ class RecordsHandler():
         return data_splits
 
     def _full_wave_parse_window_function(self, example_proto):
-        features = {
-            'ppg': tf.io.FixedLenFeature([256], tf.float32),
-            'abp': tf.io.FixedLenFeature([256], tf.float32),
-        }
-        return tf.io.parse_single_example(example_proto, features)
+        features = tf.io.parse_single_example(
+            example_proto, 
+            features = {
+                'ppg': tf.io.FixedLenFeature([256], tf.float32),
+                'abp': tf.io.FixedLenFeature([256], tf.float32),
+            }
+        )
+        ppg = features['ppg']
+        label = features['abp']
+        return ppg, label
