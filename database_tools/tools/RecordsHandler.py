@@ -131,6 +131,6 @@ class RecordsHandler():
                 'abp': tf.io.FixedLenFeature([256], tf.float32),
             }
         )
-        ppg = features['ppg']
-        label = features['abp']
+        ppg = tf.reshape(features['ppg'], (256, 1))
+        label = tf.reshape(features['abp'], (256, 1))
         return ppg, label
