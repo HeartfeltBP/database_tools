@@ -51,11 +51,27 @@ This repo contains a set of tools for extracting and cleaning photoplethsmothogr
 <!-- GETTING STARTED -->
 ## Getting Started
 
-Placeholder.
+This sections details the requirements to start using this library. Links are for Ubuntu installation.
 
 ### Prerequisites
 
-Placeholder.
+####Python
+```python
+sudo apt install python3.8 -y
+sudo apt install python3.8-dev python3.8-venv -y
+
+echo 'export PATH="$PATH:/home/ubuntu/.local/bin"' >> ~/.bashrc
+source ~/.bashrc
+
+curl -sS https://bootstrap.pypa.io/get-pip.py | python3.8
+python3.8 -m pip install virtualenv
+python3.8 -m venv .venv/base-env
+echo 'alias base-env="source ~/.venv/base-env/bin/activate"' >> ~/.bashrc
+base-env
+
+python3.8 -m pip install --upgrade pip
+```
+####Poetry
 
 ### Installation
 
