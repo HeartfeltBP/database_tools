@@ -8,7 +8,7 @@
     <img src="images/heartfelt-logo.png" alt="Heartfelt Logo" width="400" height="400">
   </a>
 
-  <h3 align="center">MIMIC-III Database Tools</h3>
+  <title align="center">MIMIC-III Database Tools</title>
 
   <p align="center">
     For extracting and cleaning ppg and abp data from the MIMIC-III Waveforms Database.
