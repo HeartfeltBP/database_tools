@@ -29,7 +29,6 @@
       <a href="#getting-started">Getting Started</a>
       <ul>
         <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
       </ul>
     </li>
     <li><a href="#usage">Usage</a></li>
@@ -72,10 +71,14 @@ base-env
 python3.8 -m pip install --upgrade pip
 ```
 2. Poetry
+```shell
+curl -sSL https://install.python-poetry.org | python3 -
+echo 'export PATH="$PATH:$HOME/.local/bin"' >> ~/.bashrc
+source ~/.bashrc
 
-### Installation
-
-Placeholder.
+# Verify installation
+poetry --version
+```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
