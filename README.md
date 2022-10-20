@@ -104,6 +104,9 @@ poetry build
 poetry shell
 ```
 
+### Create Data Directory
+The functions in this library rely on a data folder named with the convention `data-YYYY-MM-DD`. This directory contains two additional folders, `mimic3` and `figures`. The `mimic3/lines` folder is intended to hold the jsonlines files the data will initially saved to. The `mimic3/records` folder will hold the TFRecords files generated from these jsonlines files. This will be discussed in greater depth in the <a href="#generate-records">Generate Records</a> section.
+
 ### Get Valid Records
 The class DataLocator is specifically written to find valid segments in the MIMIC-III Waveforms subset and save the files html link. Valid records refers to data files that contain both PPG and ABP recordings and are at least 10 minutes in length. Currently this code is only intended for the MIMIC-III Waveforms subset but will likely be adapated to allow for valid segments to be identified in the MIMIC-III Matched Subset (records are linked to clinical data). To perform an extraction the file `scripts/get-valid-segs.py` can be run (paths must be configured).
 
