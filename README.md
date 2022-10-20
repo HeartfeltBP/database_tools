@@ -7,7 +7,7 @@
       
             
       
- ![image](https://user-images.githubusercontent.com/82114003/197070514-4a97b851-6cd3-4369-8a75-0897f76e5ec1.png)
+ ![HF Logo](images/heartfelt-logo.png)
  
 
   
