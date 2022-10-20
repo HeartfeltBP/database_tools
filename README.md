@@ -32,6 +32,13 @@
       </ul>
     </li>
     <li><a href="#usage">Usage</a></li>
+      <ul>
+        <li><a href="#poetry">Poetry</a></li>
+        <li><a href="#get-valid-records">Get Valid Records</a></li>
+        <li><a href="#build-database">Build Database</a></li>
+        <li><a href="#generate-records">Generate Records</a></li>
+        <li><a href="#read-records">Read Records</a></li>
+      </ul>
     <li><a href="#signal-processing-pipeline">Signal Processing Pipeline</a></li>
     <li><a href="#database-structure">Database Structure</a></li>
     <li><a href="#license">License</a></li>
@@ -87,7 +94,24 @@ poetry --version
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-Placeholder.
+### Poetry
+The commands below can be used to install the poetry environment, build the project, and activate the environment.
+```shell
+cd database-tools
+poetry lock
+poetry install
+poetry build
+poetry shell
+```
+
+### Get Valid Records
+The class DataLocator is specifically written to find valid segments in the MIMIC-III Waveforms subset and save the files html link. Valid records refers to data files that contain both PPG and ABP recordings and are at least 10 minutes in length. Currently this code is only intended for the MIMIC-III Waveforms subset but will likely be adapated to allow for valid segments to be identified in the MIMIC-III Matched Subset (records are linked to clinical data). To perform an extraction the file `scripts/get-valid-segs.py` can be run (paths must be configured).
+
+### Build Database
+
+### Generate Records
+
+### Read Records
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
