@@ -4,7 +4,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/ActiveBP/README">
+  <a href="https://github.com/HeartfeltBP/database_tools/README">
     <img src="images/heartfelt-logo.png" alt="Heartfelt Logo" width="400" height="400">
   </a>
 
@@ -44,7 +44,7 @@
 <!-- Introduction -->
 ## Introduction
 
-This repo contains a set of tools for extracting and cleaning photoplethsmothography (ppg) and artial blood pressure (abp) waveforms from the [MIMIC-III Waveforms Database](https://physionet.org/content/mimic3wdb/1.0/) for the purpose of blood pressure estimation via deep learning.
+This repo contains a set of tools for extracting and cleaning photoplethsmothography (ppg) and artial blood pressure (abp) waveforms from the [MIMIC-III Waveforms Database](https://physionet.org/content/mimic3wdb/1.0/) for the purpose of blood pressure estimation via deep learning. 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
