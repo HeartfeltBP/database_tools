@@ -41,8 +41,6 @@
         <li><a href="#generate-records">Generate Records</a></li>
         <li><a href="#read-records">Read Records</a></li>
       </ul>
-    <li><a href="#signal-processing-pipeline">Signal Processing Pipeline</a></li>
-    <li><a href="#database-structure">Database Structure</a></li>
     <li><a href="#license">License</a></li>
   </ol>
 </details>
@@ -127,24 +125,6 @@ Once data has been extracted TFRecords can be generated for training a Tensorflo
 
 ### Read Records
 The class `RecordsHandler` also contains the function `ReadRecords` which can be used to read the TFRecords into a Tensorflow `TFRecordsDataset` object. This function can be used to inspect the integrity of the dataset or for loading the dataset for model training. The number of cores and a TensorFlow `AUTOTUNE` object must be provided.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- SIGNAL PROCESSING PIPELINE -->
-## Signal Processing Pipeline
-
-Placeholder.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- DATABASE STRUCTURE -->
-## Database Structure
-
-Placeholder.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
