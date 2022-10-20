@@ -8,16 +8,18 @@ from wfdb import rdheader
 
 class DataLocator():
     def __init__(self,
-                 data_dir='physionet.org/files/mimic3wdb/1.0/'):
+                 data_dir='/path/to/data/dir/',
+                 mimic3_dir='physionet.org/files/mimic3wdb/1.0/'):
         self._data_dir = data_dir
+        self._mimic3_dir = mimic3_dir
 
     def run(self):
-        records_path = self._data_dir + 'RECORDS-adults'
-        out_path = self._build_empty_database(records_path)
+        records_path = self._mimic3_dir + 'RECORDS-adults'
+        os.system(f'wget -q -np https://{records_path} -P {self._data_dir}')
 
         valid_segs = []
         i = 0
-        for folder in tqdm(self._mrn_generator(out_path + 'RECORDS-adults'), total=59344):
+        for folder in tqdm(self._mrn_generator(self._data_dir + 'RECORDS-adults'), total=59344):
             i += 1
             layout = self._get_layout(folder)
             if not layout:
@@ -29,17 +31,11 @@ class DataLocator():
                 continue
             valid_segs += self._valid_segments(folder, master_header)
             if (i % 100) == 0:
-                rmtree(self._data_dir, ignore_errors=True)
+                rmtree(self._mimic3_dir, ignore_errors=True)
 
         df = pd.DataFrame(valid_segs)
-        df.to_csv(out_path + 'valid_segs.csv', index=False)
+        df.to_csv(self._data_dir + 'valid_segs.csv', index=False)
         return
-
-    def _build_empty_database(self, records_path):
-        path = f'data-{str(date.today())}/'
-        os.mkdir(path)
-        os.system(f'wget -q -np https://{records_path} -P {path}')
-        return path
 
     def _mrn_generator(self, path):
         records = set(pd.read_csv(path, names=['records'])['records'])
@@ -52,7 +48,7 @@ class DataLocator():
 
     def _get_layout(self, folder):
         file = folder.split('/')[1] + '_layout'
-        path = self._data_dir + folder + file
+        path = self._mimic3_dir + folder + file
         response = self._download(path + '.hea')
         if response == 0:
             layout = rdheader(path)
@@ -68,7 +64,7 @@ class DataLocator():
 
     def _get_master_header(self, folder):
         file = folder.split('/')[1]
-        path = self._data_dir + folder + file
+        path = self._mimic3_dir + folder + file
         response = self._download(path + '.hea')
         if response == 0:
             master_header = rdheader(path)
@@ -82,7 +78,7 @@ class DataLocator():
         segments = []
         for name, n_samples in zip(seg_name, seg_len):
             if (n_samples > 75000) & (name != '~'):
-                path = self._data_dir + folder + name
+                path = self._mimic3_dir + folder + name
                 response = self._download(path + '.hea')
                 if response == 0:
                     hea = rdheader(path)
