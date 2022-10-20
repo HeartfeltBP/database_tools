@@ -5,8 +5,8 @@
 <br />
 <div align="center">
   
-![HF Logo](https://github.com/HeartfeltBP/heartfelt/HeartfeltLogo.png "Heartfelt Logo")
-  
+[![HF Logo](https://github.com/HeartfeltBP/heartfelt/HeartfeltLogo.png "Heartfelt Logo")
+](https://github.com/HeartfeltBP/heartfelt/blob/main/HeartfeltLogo.png) 
 
   <h1 align="center">MIMIC-III Database Tools</h1>
 
