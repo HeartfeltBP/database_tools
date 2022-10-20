@@ -55,8 +55,8 @@ This sections details the requirements to start using this library. Links are fo
 
 ### Prerequisites
 
-####Python
-```python
+1. Python
+```shell
 sudo apt install python3.8 -y
 sudo apt install python3.8-dev python3.8-venv -y
 
@@ -71,7 +71,7 @@ base-env
 
 python3.8 -m pip install --upgrade pip
 ```
-####Poetry
+2. Poetry
 
 ### Installation
 
