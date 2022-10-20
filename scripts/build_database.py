@@ -1,16 +1,15 @@
 import os
 from database_tools.tools import BuildDatabase
 
-repo_dir = '/media/cam/CAPSTONEDB/database_tools/'
+repo_dir = '/path/to/repository/'
 os.chdir(repo_dir)
 
 config = dict(
     low=0.5,
     high=8.0,
-    sim1=0.7,
-    sim2=0.9,
+    sim1=0.6,
     df=0.2,
-    snr_t=3.0,
+    snr_t=2.0,
     hr_diff=1/6,
     f0_low=0.667,
     f0_high=3.0,
@@ -19,7 +18,7 @@ config = dict(
 )
 
 worker = BuildDatabase(
-    output_dir='data-2022-10-07/',
+    output_dir='/path/to/data/dir/',
     config=config,
     win_len=256,
     fs=125,
