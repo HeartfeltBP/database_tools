@@ -5,7 +5,7 @@
 <br />
 <div align="center">
   
-<img src="https://github.com/HeartfeltBP/heartfelt/HeartfeltLogo.png" alt="Heartfelt Logo" width="400" height="400">
+[HF Logo](https://github.com/HeartfeltBP/heartfelt/HeartfeltLogo.png "Heartfelt Logo")
   
 
   <h1 align="center">MIMIC-III Database Tools</h1>
