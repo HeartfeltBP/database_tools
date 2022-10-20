@@ -6,9 +6,7 @@
 <div align="center">
       
             
- <img src=:images/heartfelt-logo.pngE"  width="300em" height="300em">     
- ![HF Logo](images/heartfelt-logo.png)
- 
+ <img src="images/heartfelt-logo.png"  width="300em" height="300em"> 
 
   
   <h1 align="center">MIMIC-III Database Tools</h1>
