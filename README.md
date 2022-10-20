@@ -4,9 +4,9 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/HeartfeltBP/heartfelt/HeartfeltLogo.png">
-    <img src="https://github.com/HeartfeltBP/heartfelt/HeartfeltLogo.png" alt="Heartfelt Logo" width="400" height="400">
-  </a>
+  
+<img src="https://github.com/HeartfeltBP/heartfelt/HeartfeltLogo.png" alt="Heartfelt Logo" width="400" height="400">
+  
 
   <h1 align="center">MIMIC-III Database Tools</h1>
 
