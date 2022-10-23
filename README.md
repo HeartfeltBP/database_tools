@@ -50,7 +50,7 @@
 <!-- Introduction -->
 ## Introduction
 
-This repo contains a set of tools for extracting and cleaning photoplethsmothography (ppg) and artial blood pressure (abp) waveforms from the [MIMIC-III Waveforms Database](https://physionet.org/content/mimic3wdb/1.0/) for the purpose of blood pressure estimation via deep learning. 
+This repo contains a set of tools for extracting and cleaning photoplethysmography (ppg) and artial blood pressure (abp) waveforms from the [MIMIC-III Waveforms Database](https://physionet.org/content/mimic3wdb/1.0/) for the purpose of blood pressure estimation via deep learning. 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
