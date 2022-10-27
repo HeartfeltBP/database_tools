@@ -174,7 +174,7 @@ class SignalProcessor():
         abp_max_bounds,
     ):
         # Align signals in time (output is win_len samples long)
-        p, a = align_signals(p, a, win_len=self._win_len)
+        p, a = align_signals(p, a, win_len=self._win_len, fs=125)
 
         # Get time similarity
         time_sim = get_similarity(p, a)

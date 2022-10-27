@@ -157,7 +157,7 @@ def get_snr(x, low, high, df, fs):
             snr = 10 * np.log10(p_sig / p_noise)
         except (ZeroDivisionError, RuntimeWarning):
             snr = -10
-    return snr, 
+    return snr, f0
 
 def flat_lines(x):
     """
