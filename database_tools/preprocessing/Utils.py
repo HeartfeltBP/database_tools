@@ -32,19 +32,3 @@ def window(x, win_len, overlap):
          ((i + 1) * win_len) - overlap] for i in range(1, int(len(x) / win_len))
     ]
     return idx
-
-def normalize(x):
-    """
-    TODO NOT CURRENTLY IN USE
-    Normalize data with sklearn StandardScaler or MinMaxScaler (tbd).
-
-    Args:
-        x (np.ndarray): Signal data.
-
-    Returns:
-        x_scaled (np.ndarray): Normalized signal data.
-    """
-    # scaler = MinMaxScaler(feature_range=(0, 1))
-    scaler = StandardScaler()
-    x_scaled = scaler.fit_transform(x.reshape(-1, 1))
-    return x_scaled.reshape(-1,)

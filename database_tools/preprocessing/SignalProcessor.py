@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 from shutil import rmtree
 from wfdb import rdrecord
-from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr
-from database_tools.preprocessing.Utils import download, window, normalize
+from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, flat_lines
+from database_tools.preprocessing.Utils import download, window
 
 
 class SignalProcessor():
@@ -34,25 +34,26 @@ class SignalProcessor():
 
     def run(self, config):
         """
-        Process all signals in list of files. Performs signal and beat level cleaning.
-        ppg output is bandpass filtered and normalized (standardized?).
+        Generator that processes all signals in list of files. Performs signal 
+        and level filtering and cleaning and yields valid samples (ppg, abp window).
 
         Args:
-            low (float, optional): _description_. Defaults to 0.5.
-            high (float, optional): _description_. Defaults to 8.0.
-            sim1 (float, optional): _description_. Defaults to 0.6.
-            sim2 (float, optional): _description_. Defaults to 0.9.
-            snr_t (int, optional): _description_. Defaults to 20.
-            hr_diff (_type_, optional): _description_. Defaults to 1/6.
-            f0_low (float, optional): _description_. Defaults to 0.667.
-            f0_high (float, optional): _description_. Defaults to 3.0.
+            low (float): Low frequency for bandpass filtering.
+            high (float): High frequency for bandpass filtering.
+            sim (float): Time & spectral similarity threshold (minimum).
+            snr_t (float): SNR threshold (minimum).
+            hr_diff (int): Maximum HR difference between PPG and ABP signals.
+            f0_low (float): Minimum valid HR in Hz.
+            f0_high (float): Maximum valid HR in Hz.
+            abp_min_bounds (List[int]): Upper and lower bounds for DBP.
+            abp_max_bounds (List[int]): Upper and lower bounds for SBP.
 
         Returns:
-            None
+            ppg, abp (np.ndarray): Valid PPG, ABP window pair.
         """
         low=config['low']
         high=config['high']
-        sim1=config['sim1']
+        sim=config['sim']
         df=config['df']
         snr_t=config['snr_t']
         hr_diff=config['hr_diff']
@@ -96,7 +97,7 @@ class SignalProcessor():
                     a=a,
                     low=low,
                     high=high,
-                    sim1=sim1,
+                    sim=sim,
                     df=df,
                     snr_t=snr_t,
                     hr_diff=hr_diff,
@@ -163,7 +164,7 @@ class SignalProcessor():
         a,
         low,
         high,
-        sim1,
+        sim,
         df,
         snr_t,
         hr_diff,
@@ -184,12 +185,6 @@ class SignalProcessor():
         spec_sim = get_similarity(p_f, a_f)
 
         # Get SNR & fundamental frequencies
-        # snr_p = get_snr(p, low=low, high=high, fs=self._fs)
-        # snr_a = get_snr(a, low=low, high=high, fs=self._fs)
-
-        # f0_p = get_f0(p, fs=self._fs)
-        # f0_a = get_f0(a - np.mean(a), fs=self._fs)
-
         snr_p, f0_p = get_snr(p, low=low, high=high, df=df, fs=self._fs)
         snr_a, f0_a = get_snr(a, low=0, high=self._fs / 2, df=df, fs=self._fs)
         f0 = np.array([f0_p, f0_a])
@@ -198,15 +193,19 @@ class SignalProcessor():
         min_ = np.min(a)
         max_ = np.max(a)
 
+        # Check for flat lines
+        flat_p = flat_lines(p)
+        flat_a = flat_lines(a)
+
         # Check similarity, snr, f0, and bp
         nan_check = np.nan in [time_sim, spec_sim, snr_p, snr_a, f0_p, f0_a, min_, max_]
-        sim_check = (time_sim < sim1) | (spec_sim < sim1)
+        sim_check = (time_sim < sim) | (spec_sim < sim)
         snr_check = (snr_p < snr_t) | (snr_a < snr_t)
         hrdiff_check = np.abs(f0_p - f0_a) > hr_diff
         hr_check = (f0 < f0_low).any() | (f0 > f0_high).any()
         dbp_check = (min_ < abp_min_bounds[0]) | (max_ > abp_max_bounds[1])
         sbp_check = (max_ < abp_max_bounds[0]) | (max_ > abp_max_bounds[1])
-        if nan_check | sim_check | snr_check | hrdiff_check | hr_check | dbp_check | sbp_check:
+        if nan_check | sim_check | snr_check | hrdiff_check | hr_check | dbp_check | sbp_check | flat_p | flat_a:
             valid = False
         else:
             valid = True
@@ -220,10 +219,10 @@ class SignalProcessor():
                  float(spec_sim),
                  float(snr_p),
                  float(snr_a),
-                 float(f0_p * 60),
+                 float(f0_p * 60),  # Multiply by 60 to estimate HR
                  float(f0_a * 60),
                  float(min_),
-                 float(max_)
+                 float(max_),
                 ],
                 [p, a],
             )

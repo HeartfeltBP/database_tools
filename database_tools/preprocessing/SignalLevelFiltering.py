@@ -2,15 +2,15 @@ import warnings
 import numpy as np
 from scipy import signal, integrate
 
-def bandpass(x, low=0.5, high=8.0, fs=125):
+def bandpass(x, low, high, fs):
     """
     Filters signal with a 4th order Cheby II filter.
 
     Args:
         x (np.ndarray): Signal data.
-        low (float, optional): Lower frequency in Hz. Defaults to 0.5.
-        high (float, optional): Upper frequency in Hz. Defaults to 8.0.
-        fs (int, optional): Sampling rate. Defaults to 125.
+        low (float, optional): Lower frequency in Hz.
+        high (float, optional): Upper frequency in Hz.
+        fs (int, optional): Sampling rate.
 
     Returns:
         x (np.ndarray): Filtered signal.
@@ -36,7 +36,7 @@ def bandpass(x, low=0.5, high=8.0, fs=125):
     x = signal.sosfiltfilt(cby, x, padtype=None)
     return x
 
-def align_signals(pleth, abp, win_len, fs=125):
+def align_signals(pleth, abp, win_len, fs):
     """
     Find the index at which the two signals
     have the largest time correlation.
@@ -45,7 +45,7 @@ def align_signals(pleth, abp, win_len, fs=125):
         pleth (np.ndarray): PLETH data.
         abp (np.ndarray): ABP data.
         win_len (int): Length of windows.
-        fs (int, optional): Sampling rate of signal. Default is 125.
+        fs (int, optional): Sampling rate of signal.
 
     Returns:
         signals (tuple(np.ndarray)): Aligned PLETH and ABP window.
@@ -68,7 +68,7 @@ def get_similarity(x, y):
     Calculates time or spectral similarity.
 
     Args:
-        x (np.ndarray): PLETH data.
+        x (np.ndarray): PPG data.
         y (np.ndarray): ABP data.
         spectral (boolean): If True calculate fft
             of signals.
@@ -157,4 +157,21 @@ def get_snr(x, low, high, df, fs):
             snr = 10 * np.log10(p_sig / p_noise)
         except (ZeroDivisionError, RuntimeWarning):
             snr = -10
-    return snr, f0
+    return snr, 
+
+def flat_lines(x):
+    """
+    Flat line detection.
+
+    Args:
+        x (np.ndarray): Signal to process.
+
+    Returns:
+        bool: True if flat lines are present and False otherwise.
+    """
+    for i, val in enumerate(x):
+        if (i + 2) >= len(x):
+            break
+        if (x[i + 1] == val) & (x[i + 2] == val):
+            return True
+    return False

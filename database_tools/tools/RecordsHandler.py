@@ -4,31 +4,42 @@ import pandas as pd
 import pickle as pkl
 import tensorflow as tf
 from tqdm import tqdm
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 
 class RecordsHandler():
     def __init__(self, data_dir):
         self._data_dir = data_dir
 
-    def generate_records(self, split_strategy=(0.70, 0.15, 0.15), max_samples=10000, normalize=True):
+    def generate_records(self, split_strategy=(0.70, 0.15, 0.15), max_samples=10000, normalize='MinMax'):
+        """
+        Generates TFRecords files from JSONLINES files.
+
+        Args:
+            split_strategy (tuple, optional): Data % for train, val, test. Defaults to (0.70, 0.15, 0.15).
+            max_samples (int, optional): Max samples per TFRecords file. Defaults to 10000.
+            normalize (str, optional): Normalization method. Either 'MinMax' or 'Standard'. Defaults to 'MinMax'.
+        """
         print('Loading data...')
         df = self._compile_lines(self._data_dir)
         ppg_set = np.array(df['ppg'].to_list())
         abp_set = np.array(df['abp'].to_list())
 
-        if normalize:
-            print('Scaling data...')
+        print('Scaling data...')
+        if normalize == 'Standard':
             ppg_scaler = StandardScaler()
             abp_scaler = StandardScaler()
-            ppg_set = ppg_scaler.fit_transform(ppg_set)
-            abp_set = abp_scaler.fit_transform(abp_set)
+        elif normalize == 'MinMax':
+            ppg_scaler = MinMaxScaler(feature_range=(0, 1))
+            abp_scaler = MinMaxScaler(feature_range=(0, 1))
+        ppg_set = ppg_scaler.fit_transform(ppg_set)
+        abp_set = abp_scaler.fit_transform(abp_set)
 
-            # Save scalers
-            with open(f'{self._data_dir}ppg_scaler.pkl', 'wb') as f:
-                pkl.dump(ppg_scaler, f)
-            with open(f'{self._data_dir}abp_scaler.pkl', 'wb') as f:
-                pkl.dump(abp_scaler, f)
+        # Save scalers
+        with open(f'{self._data_dir}ppg_scaler.pkl', 'wb') as f:
+            pkl.dump(ppg_scaler, f)
+        with open(f'{self._data_dir}abp_scaler.pkl', 'wb') as f:
+            pkl.dump(abp_scaler, f)
 
         print('Splitting data...')
         idx = np.random.permutation(len(df))
