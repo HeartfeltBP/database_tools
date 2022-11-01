@@ -115,8 +115,8 @@ def get_snr(x, low, high, df, fs):
     dpdf = np.diff(psd) / np.diff(freqs)
     peak_idx = np.where(np.diff(np.sign(dpdf)))[0] + 1
     peak_x = freqs[peak_idx]
-    f_idx = np.sort(np.argpartition(psd[peak_idx], -3)[-3:])
     try:
+        f_idx = np.sort(np.argpartition(psd[peak_idx], -3)[-3:])
         f0, f1, f2 = peak_x[f_idx]
     except:
         return -10, 0
