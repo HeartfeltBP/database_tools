@@ -25,7 +25,7 @@ ipywidgets = "==7.7.1"
 jupyterlab-widgets = "==1.1.1"
 widgetsnbextension = "==3.6.1"
 wandb = "^0.13.4"
-tensorflow = "==2.9.0"
+tensorflow = "==2.9.2"
 keras = ">=2.9.0rc0,<2.10.0"
 
 [build-system]
