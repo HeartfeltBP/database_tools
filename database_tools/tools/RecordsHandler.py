@@ -36,9 +36,9 @@ class RecordsHandler():
         abp_set = abp_scaler.fit_transform(abp_set)
 
         # Save scalers
-        with open(f'{self._data_dir}ppg_scaler.pkl', 'wb') as f:
+        with open(f'{self._data_dir}ppg_scaler_{normalize}.pkl', 'wb') as f:
             pkl.dump(ppg_scaler, f)
-        with open(f'{self._data_dir}abp_scaler.pkl', 'wb') as f:
+        with open(f'{self._data_dir}abp_scaler_{normalize}.pkl', 'wb') as f:
             pkl.dump(abp_scaler, f)
 
         print('Splitting data...')
