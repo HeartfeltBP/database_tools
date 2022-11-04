@@ -137,3 +137,5 @@ records/
 .vscode/
 
 data-*/
+*/artifacts
+*/wandb
