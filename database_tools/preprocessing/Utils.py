@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 def download(path):
@@ -32,3 +33,12 @@ def window(x, win_len, overlap):
          ((i + 1) * win_len) - overlap] for i in range(1, int(len(x) / win_len))
     ]
     return idx
+
+def make_equal_len(x, y):
+    len_x = len(x)
+    len_y = len(y)
+    if len_x > len_y:
+        y = np.pad(y, pad_width=[0, len_x - len_y])
+    else:
+        x = np.pad(x, pad_width=[0, len_y - len_x])
+    return x, y

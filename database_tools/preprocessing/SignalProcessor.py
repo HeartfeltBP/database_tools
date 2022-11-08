@@ -3,7 +3,9 @@ import numpy as np
 import pandas as pd
 from shutil import rmtree
 from wfdb import rdrecord
-from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, flat_lines
+from neurokit2.ppg import ppg_findpeaks
+from heartpy.preprocessing import flip_signal
+from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, flat_lines, beat_similarity
 from database_tools.preprocessing.Utils import download, window
 
 
@@ -61,6 +63,13 @@ class SignalProcessor():
         f0_high=config['f0_high']
         abp_min_bounds=config['abp_min_bounds']
         abp_max_bounds=config['abp_max_bounds']
+        pp_min=config['pp_min']
+        pp_max=config['pp_max']
+        n_peaks=config['n_peaks']
+        windowsize=config['windowsize']
+        ppg_ma_perc=config['ppg_ma_perc']
+        abp_ma_perc=config['abp_ma_perc']
+        beat_sim=config['beat_sim']
 
         random.shuffle(self._files)
         mrn = 'start'
@@ -105,6 +114,13 @@ class SignalProcessor():
                     f0_high=f0_high,
                     abp_min_bounds=abp_min_bounds,
                     abp_max_bounds=abp_max_bounds,
+                    pp_min=pp_min,
+                    pp_max=pp_max,
+                    n_peaks=n_peaks,
+                    windowsize=windowsize,
+                    ppg_ma_perc=ppg_ma_perc,
+                    abp_ma_perc=abp_ma_perc,
+                    beat_sim=beat_sim,
                 )
 
                 # Add window if 'valid' is True
@@ -172,9 +188,16 @@ class SignalProcessor():
         f0_high,
         abp_min_bounds,
         abp_max_bounds,
+        pp_min,
+        pp_max,
+        n_peaks,
+        windowsize,
+        ppg_ma_perc,
+        abp_ma_perc,
+        beat_sim,
     ):
         # Align signals in time (output is win_len samples long)
-        p, a = align_signals(p, a, win_len=self._win_len, fs=125)
+        p, a = align_signals(p, a, win_len=self._win_len, fs=self._fs)
 
         # Get time similarity
         time_sim = get_similarity(p, a)
@@ -197,7 +220,23 @@ class SignalProcessor():
         flat_p = flat_lines(p)
         flat_a = flat_lines(a)
 
-        # Check similarity, snr, f0, and bp
+        beat_sim_p = beat_similarity(
+            p,
+            min_peaks=n_peaks,
+            windowsize=windowsize,
+            ma_perc=ppg_ma_perc,
+            fs=self._fs
+        )
+
+        beat_sim_a = beat_similarity(
+            a,
+            min_peaks=n_peaks,
+            windowsize=windowsize,
+            ma_perc=abp_ma_perc,
+            fs=self._fs
+        )
+
+        # Check similarity, snr, hr, bp, and peaks
         nan_check = np.nan in [time_sim, spec_sim, snr_p, snr_a, f0_p, f0_a, min_, max_]
         sim_check = (time_sim < sim) | (spec_sim < sim)
         snr_check = (snr_p < snr_t) | (snr_a < snr_t)
@@ -205,7 +244,9 @@ class SignalProcessor():
         hr_check = (f0 < f0_low).any() | (f0 > f0_high).any()
         dbp_check = (min_ < abp_min_bounds[0]) | (max_ > abp_max_bounds[1])
         sbp_check = (max_ < abp_max_bounds[0]) | (max_ > abp_max_bounds[1])
-        if nan_check | sim_check | snr_check | hrdiff_check | hr_check | dbp_check | sbp_check | flat_p | flat_a:
+        pp_check = (max_ - min_ < pp_min) | (max_ - min_ > pp_max)
+        beat_check = (beat_sim_p < beat_sim) | (beat_sim_a < beat_sim)
+        if nan_check | sim_check | snr_check | hrdiff_check | hr_check | dbp_check | sbp_check | flat_p | flat_a | pp_check | beat_check:
             valid = False
         else:
             valid = True

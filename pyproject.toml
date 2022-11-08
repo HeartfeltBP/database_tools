@@ -27,6 +27,7 @@ widgetsnbextension = "==3.6.1"
 wandb = "^0.13.4"
 tensorflow = "==2.9.2"
 keras = ">=2.9.0rc0,<2.10.0"
+hampel = "^0.0.5"
 
 [build-system]
 requires = ["poetry-core"]
