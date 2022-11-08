@@ -180,7 +180,7 @@ def flat_lines(x):
             return True
     return False
 
-def beat_similarity(x, min_peaks, windowsize, ma_perc, fs):
+def beat_similarity(x, n_peaks, windowsize, ma_perc, fs):
     """Calculates beat similarity by segmenting beats at valleys and
        calculating the Pearson correlation coefficient. The final value
        output is the mean of the correlation coefficients calculated from
@@ -198,27 +198,32 @@ def beat_similarity(x, min_peaks, windowsize, ma_perc, fs):
     Returns:
         s: Normalized correlation coeffient. Segmentation failure results in -1.
     """
-    x_pad = np.pad(x, pad_width=[9, 9])
+    pad_width = 19
+    x_pad = np.pad(x, pad_width=[pad_width, 0], constant_values=[x[0]])
+    x_pad = np.pad(x_pad, pad_width=[0, pad_width], constant_values=[x[-1]])
+
     rol_mean = rolling_mean(x_pad, windowsize=windowsize, sample_rate=fs)
     peaks = detect_peaks(x_pad, rol_mean, ma_perc=ma_perc, sample_rate=fs)['peaklist']
-    peaks = np.array(peaks) - 10
+    peaks = np.array(peaks) - pad_width - 1
+
     flip = flip_signal(x_pad)
     rol_mean = rolling_mean(flip, windowsize=windowsize, sample_rate=fs)
     valleys = detect_peaks(flip, rol_mean, ma_perc=ma_perc, sample_rate=fs)['peaklist']
-    valleys = np.array(valleys) - 10
+    valleys = np.array(valleys) - pad_width - 1
 
     # check number of peaks
-    if len(peaks) < 2:
-        return -1
+    # TODO Is this necessary?
+    # if len(peaks) < n_peaks:
+    #     return -1
 
     # check no peaks are valleys
     if np.isin(peaks, valleys).any():
-        return -1
+        return -2
 
     # check that peaks and valleys are in order
     hist = np.digitize(valleys, peaks)
     if not np.array([hist[i] == hist[i+1] - 1 for i in range(len(hist) - 1)]).all():
-        return -1
+        return -3
 
     neg_len = lambda x : len(x) * -1
     if len(peaks) <= len(valleys):
@@ -243,9 +248,9 @@ def beat_similarity(x, min_peaks, windowsize, ma_perc, fs):
 
     s = 0
     for i, j in idx:
-        x, y = make_equal_len(aligned_beats[i], aligned_beats[j])
-        s += get_similarity(x, y)
+        beat1, beat2 = make_equal_len(aligned_beats[i], aligned_beats[j])
+        s += get_similarity(beat1, beat2)
     try:
         return s / len(aligned_beats)
     except ZeroDivisionError:
-        return -1
+        return -4

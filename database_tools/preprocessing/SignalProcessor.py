@@ -33,6 +33,8 @@ class SignalProcessor():
         self._abp_hr  = []
         self._abp_min = []
         self._abp_max = []
+        self._ppg_beat_sim = []
+        self._abp_beat_sim = []
 
     def run(self, config):
         """
@@ -67,12 +69,12 @@ class SignalProcessor():
         pp_max=config['pp_max']
         n_peaks=config['n_peaks']
         windowsize=config['windowsize']
-        ppg_ma_perc=config['ppg_ma_perc']
-        abp_ma_perc=config['abp_ma_perc']
+        ma_perc=config['ma_perc']
         beat_sim=config['beat_sim']
 
         random.shuffle(self._files)
         mrn = 'start'
+        num_windows_completed = 0
         for i, f in enumerate(self._files):
             last_mrn = mrn
             mrn = f.split('/')[-2]
@@ -118,11 +120,12 @@ class SignalProcessor():
                     pp_max=pp_max,
                     n_peaks=n_peaks,
                     windowsize=windowsize,
-                    ppg_ma_perc=ppg_ma_perc,
-                    abp_ma_perc=abp_ma_perc,
+                    ma_perc=ma_perc,
                     beat_sim=beat_sim,
                 )
-
+                # num_windows_completed += 1
+                # if num_windows_completed % 1000 == 0:
+                #     print(f'Done processing {num_windows_completed} windows')
                 # Add window if 'valid' is True
                 if not out[0][1]:
                     self._append_metrics(out[0])
@@ -150,6 +153,8 @@ class SignalProcessor():
                 abp_hr=self._abp_hr,
                 abp_min=self._abp_min,
                 abp_max=self._abp_max,
+                ppg_beat_sim=self._ppg_beat_sim,
+                abp_beat_sim=self._abp_beat_sim,
             )
         )
         df.to_csv(path, index=False)
@@ -192,8 +197,7 @@ class SignalProcessor():
         pp_max,
         n_peaks,
         windowsize,
-        ppg_ma_perc,
-        abp_ma_perc,
+        ma_perc,
         beat_sim,
     ):
         # Align signals in time (output is win_len samples long)
@@ -222,17 +226,17 @@ class SignalProcessor():
 
         beat_sim_p = beat_similarity(
             p,
-            min_peaks=n_peaks,
+            n_peaks=n_peaks,
             windowsize=windowsize,
-            ma_perc=ppg_ma_perc,
+            ma_perc=ma_perc,
             fs=self._fs
         )
 
         beat_sim_a = beat_similarity(
             a,
-            min_peaks=n_peaks,
+            n_peaks=n_peaks,
             windowsize=windowsize,
-            ma_perc=abp_ma_perc,
+            ma_perc=ma_perc,
             fs=self._fs
         )
 
@@ -244,9 +248,10 @@ class SignalProcessor():
         hr_check = (f0 < f0_low).any() | (f0 > f0_high).any()
         dbp_check = (min_ < abp_min_bounds[0]) | (max_ > abp_max_bounds[1])
         sbp_check = (max_ < abp_max_bounds[0]) | (max_ > abp_max_bounds[1])
-        pp_check = (max_ - min_ < pp_min) | (max_ - min_ > pp_max)
+        # TODO Is this necessary?
+        # pp_check = (max_ - min_ < pp_min) | (max_ - min_ > pp_max)
         beat_check = (beat_sim_p < beat_sim) | (beat_sim_a < beat_sim)
-        if nan_check | sim_check | snr_check | hrdiff_check | hr_check | dbp_check | sbp_check | flat_p | flat_a | pp_check | beat_check:
+        if nan_check | sim_check | snr_check | hrdiff_check | hr_check | dbp_check | sbp_check | flat_p | flat_a | beat_check:
             valid = False
         else:
             valid = True
@@ -264,6 +269,8 @@ class SignalProcessor():
                  float(f0_a * 60),
                  float(min_),
                  float(max_),
+                 float(beat_sim_p),
+                 float(beat_sim_a),
                 ],
                 [p, a],
             )
@@ -279,7 +286,9 @@ class SignalProcessor():
                  float(f0_p * 60),
                  float(f0_a * 60),
                  float(min_),
-                 float(max_)
+                 float(max_),
+                 float(beat_sim_p),
+                 float(beat_sim_a),
                 ],
                 [0, 0],
             )
@@ -295,3 +304,5 @@ class SignalProcessor():
         self._abp_hr.append(data[7])
         self._abp_min.append(data[8])
         self._abp_max.append(data[9])
+        self._ppg_beat_sim.append(data[10])
+        self._abp_beat_sim.append(data[11])

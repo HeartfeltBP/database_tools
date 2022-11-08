@@ -37,6 +37,13 @@ class DataEvaluator():
             ),
             axis=1,
         )
+        self._beat_sim = np.concatenate(
+            (
+                np.array(self._stats['ppg_beat_sim']).reshape(-1, 1),
+                np.array(self._stats['abp_beat_sim']).reshape(-1, 1),
+            ),
+            axis=1,
+        )
 
     def run(self):
         figs = {}
@@ -48,6 +55,9 @@ class DataEvaluator():
         fig_sbp, fig_dbp = self._evaluate_bp()
         figs['sbp'] = fig_sbp
         figs['dbp'] = fig_dbp
+        fig_beat_sim_p, fig_beat_sim_a = self.evaluate_beat_sim()
+        figs['ppg_beat_sim'] = fig_beat_sim_p
+        figs['abp_beat_sim'] = fig_beat_sim_a
         return figs
 
     def evaluate_sim(self, bins=30):
@@ -97,6 +107,13 @@ class DataEvaluator():
             showlegend=False,
             template='plotly_dark',
         ) 
+        return (fig_p, fig_a)
+
+    def evaluate_beat_sim(self, bins=30):
+        ppg = pd.Series(self._beat_sim[:, 0])
+        abp = pd.Series(self._beat_sim[:, 1])
+        fig_p  = ppg.plot.hist(nbins=bins)
+        fig_a = abp.plot.hist(nbins=bins)
         return (fig_p, fig_a)
 
     def evaluate_hr(self, bins=25):
