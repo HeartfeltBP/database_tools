@@ -429,18 +429,6 @@ python-versions = ">=3.7"
 numpy = ">=1.14.5"
 
 [[package]]
-name = "hampel"
-version = "0.0.5"
-description = "Python implementation of the Hampel Filter"
-category = "main"
-optional = false
-python-versions = ">=3.5"
-
-[package.dependencies]
-numpy = "*"
-pandas = "*"
-
-[[package]]
 name = "heartpy"
 version = "1.2.7"
 description = "Heart Rate Analysis Toolkit"
@@ -2018,7 +2006,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.9"
-content-hash = "a15362558061feef5f9c3d6b1ae8d8688a57cb9819e26d59348a5d06533aa66e"
+content-hash = "cdede084b0bcf3839b4dd9ca4886b2505dbbbbadded2db1eac9da16a16252c95"
 
 [metadata.files]
 absl-py = [
@@ -2394,10 +2382,6 @@ h5py = [
     {file = "h5py-3.7.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9e7535df5ee3dc3e5d1f408fdfc0b33b46bc9b34db82743c82cd674d8239b9ad"},
     {file = "h5py-3.7.0-cp39-cp39-win_amd64.whl", hash = "sha256:9e2ad2aa000f5b1e73b5dfe22f358ca46bf1a2b6ca394d9659874d7fc251731a"},
     {file = "h5py-3.7.0.tar.gz", hash = "sha256:3fcf37884383c5da64846ab510190720027dca0768def34dd8dcb659dbe5cbf3"},
-]
-hampel = [
-    {file = "hampel-0.0.5-py3-none-any.whl", hash = "sha256:3852db2a0882beaaafba8545576c0b15eeeaf604efb59245c9bd3ca6d24e902d"},
-    {file = "hampel-0.0.5.tar.gz", hash = "sha256:c9baa3ea022c76d5cfc1ad8959de8df6c4a232ecdf0dffd599a03609aeae5fdb"},
 ]
 heartpy = [
     {file = "heartpy-1.2.7-py3-none-any.whl", hash = "sha256:c9df4fbd427bc10b9eaa951a34958a451a586e3c7ec0d1c46488b491abcb8ab7"},
