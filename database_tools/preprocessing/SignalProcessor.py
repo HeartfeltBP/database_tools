@@ -1,10 +1,9 @@
 import random
 import numpy as np
 import pandas as pd
+import pickle as pkl
 from shutil import rmtree
 from wfdb import rdrecord
-from neurokit2.ppg import ppg_findpeaks
-from heartpy.preprocessing import flip_signal
 from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, flat_lines, beat_similarity
 from database_tools.preprocessing.Utils import download, window
 
@@ -13,14 +12,16 @@ class SignalProcessor():
     def __init__(
         self,
         files,
-        samples_per_patient,
+        output_dir,
         win_len,
         fs,
     ):
         self._files = files
-        self._samples_per_patient = samples_per_patient
+        self._output_dir = output_dir
         self._win_len = win_len
         self._fs = fs
+
+        self._used_records = []
 
         # Metric tracking
         self._mrn     = []
@@ -74,14 +75,11 @@ class SignalProcessor():
 
         random.shuffle(self._files)
         mrn = 'start'
-        num_windows_completed = 0
         for i, f in enumerate(self._files):
             last_mrn = mrn
             mrn = f.split('/')[-2]
             if last_mrn != mrn:
                 n = 0  # int to count per patient samples
-            elif n == self._samples_per_patient:
-                continue
 
             # Download data
             out = self._get_data(f)
@@ -123,9 +121,7 @@ class SignalProcessor():
                     ma_perc=ma_perc,
                     beat_sim=beat_sim,
                 )
-                # num_windows_completed += 1
-                # if num_windows_completed % 1000 == 0:
-                #     print(f'Done processing {num_windows_completed} windows')
+
                 # Add window if 'valid' is True
                 if not out[0][1]:
                     self._append_metrics(out[0])
@@ -134,9 +130,9 @@ class SignalProcessor():
                     self._append_metrics(out[0])
                     yield (out[1][0], out[1][1])
 
-                # Move to next segment when patient fills up
-                if n == self._samples_per_patient:
-                    break
+            self._used_records.append(f)
+            with open(f'{self._output_dir}used_records.pkl', 'wb') as f:
+                pkl.dump(self._used_records, f)
             rmtree('physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
         return
 
