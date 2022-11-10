@@ -140,18 +140,18 @@ class RecordsHandlerV2():
             for tf_example in examples:
                 w.write(tf_example.SerializeToString())
 
-    def read_records(self, n_cores, AUTOTUNE):
+    def read_records(self, splits, n_cores, AUTOTUNE):
         data_splits = {}
-        for split in ['train', 'val', 'test']:
-            print(f'Reading {split} split.')
-            filenames = [file for file in glob.glob(f'{self._data_dir}recordsv2/{split}/*.tfrecords')]
+        for s in splits:
+            print(f'Reading {s} split.')
+            filenames = [file for file in glob.glob(f'{self._data_dir}recordsv2/{s}/*.tfrecords')]
             dataset = tf.data.TFRecordDataset(
                 filenames=filenames,
                 compression_type=None,
                 buffer_size=100000000,
                 num_parallel_reads=n_cores
             )
-            data_splits[split] = dataset.map(self._full_wave_parse_window_function, num_parallel_calls=AUTOTUNE)
+            data_splits[s] = dataset.map(self._full_wave_parse_window_function, num_parallel_calls=AUTOTUNE)
         return data_splits
 
     def _full_wave_parse_window_function(self, example_proto):
