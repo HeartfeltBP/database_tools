@@ -40,19 +40,19 @@ def bandpass(x, low, high, fs):
     x = signal.sosfiltfilt(cby, x, padtype=None)
     return x
 
-def align_signals(pleth, abp, win_len, fs):
+def align_signals(ppg, abp, win_len, fs):
     """
     Find the index at which the two signals
     have the largest time correlation.
 
     Args:
-        pleth (np.ndarray): PLETH data.
+        ppg (np.ndarray): PPG data.
         abp (np.ndarray): ABP data.
         win_len (int): Length of windows.
         fs (int, optional): Sampling rate of signal.
 
     Returns:
-        signals (tuple(np.ndarray)): Aligned PLETH and ABP window.
+        signals (tuple(np.ndarray)): Aligned PPG and ABP window.
     """
     max_offset = int(fs / 2)
 
@@ -60,12 +60,11 @@ def align_signals(pleth, abp, win_len, fs):
 
     corr = []
     for offset in range(0, max_offset):
-        x = pleth[offset : win_len + offset]
+        x = ppg[offset : win_len + offset]
         corr.append(np.sum( x * abp ))
     idx = np.argmax(corr)
-    x = pleth[idx : win_len + idx]
-    signals = (x, abp)
-    return signals
+    ppg_shift = ppg[idx : win_len + idx]
+    return (ppg_shift, abp)
 
 def get_similarity(x, y):
     """
@@ -180,7 +179,7 @@ def flat_lines(x):
             return True
     return False
 
-def beat_similarity(x, n_peaks, windowsize, ma_perc, fs):
+def beat_similarity(x, windowsize, ma_perc, fs, get_bp=False):
     """Calculates beat similarity by segmenting beats at valleys and
        calculating the Pearson correlation coefficient. The final value
        output is the mean of the correlation coefficients calculated from
@@ -211,19 +210,14 @@ def beat_similarity(x, n_peaks, windowsize, ma_perc, fs):
     valleys = detect_peaks(flip, rol_mean, ma_perc=ma_perc, sample_rate=fs)['peaklist']
     valleys = np.array(valleys) - pad_width - 1
 
-    # check number of peaks
-    # TODO Is this necessary?
-    # if len(peaks) < n_peaks:
-    #     return -1
-
     # check no peaks are valleys
     if np.isin(peaks, valleys).any():
-        return -2
+        return -1
 
     # check that peaks and valleys are in order
     hist = np.digitize(valleys, peaks)
     if not np.array([hist[i] == hist[i+1] - 1 for i in range(len(hist) - 1)]).all():
-        return -3
+        return -2
 
     neg_len = lambda x : len(x) * -1
     if len(peaks) <= len(valleys):
@@ -251,6 +245,12 @@ def beat_similarity(x, n_peaks, windowsize, ma_perc, fs):
         beat1, beat2 = make_equal_len(aligned_beats[i], aligned_beats[j])
         s += get_similarity(beat1, beat2)
     try:
-        return s / len(aligned_beats)
+        sim = s / len(aligned_beats)
+        if get_bp:
+            sbp = np.mean(x[peaks])
+            dbp = np.mean(x[valleys])
+            return sim, sbp, dbp
+        else:
+            return sim
     except ZeroDivisionError:
-        return -4
+        return -3

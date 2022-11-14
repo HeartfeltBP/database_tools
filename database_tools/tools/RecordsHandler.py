@@ -13,7 +13,7 @@ class RecordsHandler():
     def __init__(self, data_dir):
         self._data_dir = data_dir
 
-    def generate_records(self, labels, split_strategy=(0.70, 0.15, 0.15), max_samples=10000):
+    def generate_records(self, split_strategy=(0.70, 0.15, 0.15), max_samples=10000):
         """
         Generates TFRecords files from JSONLINES files.
 
@@ -26,7 +26,7 @@ class RecordsHandler():
         df = self._compile_lines(self._data_dir)
 
         # Determine indices for split
-        idx = [i for i in range(0, 200000)]
+        idx = [i for i in range(0, len(df))]
         test_size = split_strategy[1] + split_strategy[2]
         idx_train, idx_val = train_test_split(
             idx,
@@ -39,40 +39,38 @@ class RecordsHandler():
             test_size=round(split_strategy[2] / test_size, 5)
         )
 
-        data_unscaled = {}
-        for l in labels:
-            if l == 'vpg':
-                temp = np.gradient(data_unscaled['ppg'], 0.1, axis=1)  # 1st derivative of ppg
-            elif l == 'apg':
-                temp = np.gradient(data_unscaled['vpg'], 0.1, axis=1)  # 2nd derivative of ppg
-            else:
-                temp = np.array(df[l].to_list())
-            data_unscaled[l] = temp
+        data_unscaled = {
+            'ppg': np.array(df['ppg'].to_list()),
+            'abp': np.array(df['abp'].to_list()),
+        }
+        data_unscaled['vpg'] = np.gradient(data_unscaled['ppg'], axis=1)  # 1st derivative of ppg
+        data_unscaled['apg'] = np.gradient(data_unscaled['vpg'], axis=1)  # 2nd derivative of vpg
 
+        labels = ['ppg', 'vpg', 'apg', 'abp']
+
+        print(f'Scaling and splitting data...')
         data = {}
         scalers = {}
-        for l in labels:
-            print(f'Scaling {l}...')
+        for key in labels:
             std_scaler = StandardScaler()
-            temp = std_scaler.fit_transform(data_unscaled[l])
+            temp = std_scaler.fit_transform(data_unscaled[key])
 
-            print(f'Splitting {l}...')
             train = temp[idx_train]
             val = temp[idx_val]
             test = temp[idx_test]
-            data[l] = dict(
+            data[key] = dict(
                 train=train,
                 val=val,
                 test=test,
             )
-            scalers[l] = std_scaler
+            scalers[key] = std_scaler
 
         r = time.time_ns()
-        with open(f'{self._data_dir}scaler_{r}.pkl', 'wb') as f:
+        with open(f'{self._data_dir}scalers_{r}.pkl', 'wb') as f:
             pkl.dump(scalers, f)
 
         print('Generating records...')
-        output_dir = self._data_dir + f'records_{len(labels) - 1}d/'
+        output_dir = self._data_dir + f'records/'
         for i, split in enumerate(['train', 'val', 'test']):
             print(f'Starting {split} split...')
             split_data = {f'{k}': data[k][split] for k in data.keys()}
@@ -123,7 +121,7 @@ class RecordsHandler():
         data_splits = {}
         for s in splits:
             print(f'Reading {s} split.')
-            filenames = [file for file in glob.glob(f'{self._data_dir}records_{len(labels)-1}d/{s}/*.tfrecords')]
+            filenames = [file for file in glob.glob(f'{self._data_dir}records/{s}/*.tfrecords')]
             dataset = tf.data.TFRecordDataset(
                 filenames=filenames,
                 compression_type=None,
