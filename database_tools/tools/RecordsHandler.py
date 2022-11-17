@@ -13,7 +13,7 @@ class RecordsHandler():
     def __init__(self, data_dir):
         self._data_dir = data_dir
 
-    def generate_records(self, split_strategy=(0.70, 0.15, 0.15), max_samples=10000):
+    def generate_records(self, split_strategy=(0.70, 0.15, 0.15), max_samples=10000, scaler='Standard'):
         """
         Generates TFRecords files from JSONLINES files.
 
@@ -52,8 +52,15 @@ class RecordsHandler():
         data = {}
         scalers = {}
         for key in labels:
-            std_scaler = StandardScaler()
-            temp = std_scaler.fit_transform(data_unscaled[key])
+            if scaler == 'Standard':
+                std_scaler = StandardScaler()
+                temp = std_scaler.fit_transform(data_unscaled[key])
+                scalers[key] = std_scaler
+            elif scaler == 'MinMax':
+                min_ = np.min(data_unscaled[key])
+                max_ = np.max(data_unscaled[key])
+                temp = np.divide(data_unscaled[key] - min_, max_ - min_)
+                scalers[key] = [min_, max_]
 
             train = temp[idx_train]
             val = temp[idx_val]
@@ -63,7 +70,6 @@ class RecordsHandler():
                 val=val,
                 test=test,
             )
-            scalers[key] = std_scaler
 
         r = time.time_ns()
         with open(f'{self._data_dir}scalers_{r}.pkl', 'wb') as f:
