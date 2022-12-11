@@ -135,16 +135,12 @@ class RecordsHandler():
                 num_parallel_reads=n_cores
             )
             if labels == ['ppg', 'vpg', 'apg', 'abp']:
-                data_splits[s] = dataset.map(self._full_wave_parse_window_function3, num_parallel_calls=AUTOTUNE)
-            elif labels == ['ppg', 'vpg', 'abp']:
-                data_splits[s] = dataset.map(self._full_wave_parse_window_function2, num_parallel_calls=AUTOTUNE)
-            elif labels == ['ppg', 'abp']:
-                data_splits[s] = dataset.map(self._full_wave_parse_window_function1, num_parallel_calls=AUTOTUNE)
+                data_splits[s] = dataset.map(self._full_wave_parse_window_function, num_parallel_calls=AUTOTUNE)
             else:
                 raise ValueError(f'Invalid labels: {labels}')
         return data_splits
 
-    def _full_wave_parse_window_function3(self, example_proto):
+    def _full_wave_parse_window_function(self, example_proto):
         print('test')
         features = tf.io.parse_single_example(
             example_proto, 
@@ -159,33 +155,5 @@ class RecordsHandler():
         vpg = tf.reshape(features['vpg'], (256, 1))
         apg = tf.reshape(features['apg'], (256, 1))
         inputs = dict(ppg=ppg, vpg=vpg, apg=apg)
-        label = tf.reshape(features['abp'], (256, 1))
-        return inputs, label
-
-    def _full_wave_parse_window_function2(self, example_proto):
-        features = tf.io.parse_single_example(
-            example_proto, 
-            features = {
-                'ppg': tf.io.FixedLenFeature([256], tf.float32),
-                'vpg': tf.io.FixedLenFeature([256], tf.float32),
-                'abp': tf.io.FixedLenFeature([256], tf.float32),
-            }
-        )
-        ppg = tf.reshape(features['ppg'], (256, 1))
-        vpg = tf.reshape(features['vpg'], (256, 1))
-        inputs = dict(ppg=ppg, vpg=vpg)
-        label = tf.reshape(features['abp'], (256, 1))
-        return inputs, label
-
-    def _full_wave_parse_window_function1(self, example_proto):
-        features = tf.io.parse_single_example(
-            example_proto, 
-            features = {
-                'ppg': tf.io.FixedLenFeature([256], tf.float32),
-                'abp': tf.io.FixedLenFeature([256], tf.float32),
-            }
-        )
-        ppg = tf.reshape(features['ppg'], (256, 1))
-        inputs = dict(ppg=ppg)
         label = tf.reshape(features['abp'], (256, 1))
         return inputs, label

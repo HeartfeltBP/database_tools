@@ -13,7 +13,6 @@ class BuildDatabase():
                  win_len=1024,
                  fs=125,
                  samples_per_file=6000,
-                 samples_per_patient=6000,
                  max_samples=5000,
                  data_dir='physionet.org/files/mimic3wdb/1.0/'):
         self._output_dir = output_dir
@@ -61,11 +60,14 @@ class BuildDatabase():
 
     def _get_valid_segs(self, valid_path, used_path):
         df_valid = pd.read_csv(valid_path, names=['url'])
-        df_used = pd.read_csv(used_path, names=['url'])
-        all_valid = set(df_valid['url'])
-        used = set(df_used['url'])
-        valid = list(all_valid.difference(used))
-        return pd.Series(valid)
+        try:
+            df_used = pd.read_csv(used_path, names=['url'])
+            all_valid = set(df_valid['url'])
+            used = set(df_used['url'])
+            valid = list(all_valid.difference(used))
+            return pd.Series(valid)
+        except FileNotFoundError:
+            return df_valid['url']
 
     def _write_to_jsonlines(self, output, outfile):
         with open(outfile, 'w') as f:

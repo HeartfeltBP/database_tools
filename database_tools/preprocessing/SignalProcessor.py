@@ -120,12 +120,15 @@ class SignalProcessor():
                 if not out[0][1]:
                     self._append_metrics(out[0])
                 else:
+                    with open('test-data.pkl', 'wb') as f:
+                        print('writing test data file')
+                        pkl.dump(dict(ppg=ppg, abp=abp), f)
                     n += 1
                     self._append_metrics(out[0])
                     yield (out[1][0], out[1][1])
 
             self._used_records.append(f)
-            with open(f'{self._output_dir}used_records.pkl', 'wb') as f:
+            with open(f'{self._output_dir}used_segs.pkl', 'wb') as f:
                 pkl.dump(self._used_records, f)
             rmtree('physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
         return
@@ -207,18 +210,18 @@ class SignalProcessor():
         flat_p = flat_lines(p)
         flat_a = flat_lines(a)
 
-        beat_sim_p = beat_similarity(
+        beat_sim_p, _, _ = beat_similarity(
             p,
             windowsize=windowsize,
             ma_perc=ma_perc,
-            fs=self._fs
+            fs=self._fs,
         )
 
         beat_sim_a, sbp, dbp = beat_similarity(
             a,
             windowsize=windowsize,
             ma_perc=ma_perc,
-            fs=self._fs
+            fs=self._fs,
         )
 
         # Check similarity, snr, hr, bp, and peaks
