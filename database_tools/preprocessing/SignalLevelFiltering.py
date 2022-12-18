@@ -179,7 +179,7 @@ def flat_lines(x):
             return True
     return False
 
-def beat_similarity(x, windowsize, ma_perc, fs):
+def beat_similarity(x, windowsize, ma_perc, fs, get_bp=False):
     """Calculates beat similarity by segmenting beats at valleys and
        calculating the Pearson correlation coefficient. The final value
        output is the mean of the correlation coefficients calculated from
@@ -204,20 +204,20 @@ def beat_similarity(x, windowsize, ma_perc, fs):
     rol_mean = rolling_mean(x_pad, windowsize=windowsize, sample_rate=fs)
     peaks = detect_peaks(x_pad, rol_mean, ma_perc=ma_perc, sample_rate=fs)['peaklist']
     peaks = np.array(peaks) - pad_width - 1
-
+    
     flip = flip_signal(x_pad)
     rol_mean = rolling_mean(flip, windowsize=windowsize, sample_rate=fs)
     valleys = detect_peaks(flip, rol_mean, ma_perc=ma_perc, sample_rate=fs)['peaklist']
     valleys = np.array(valleys) - pad_width - 1
 
     # check no peaks are valleys
-    if np.isin(peaks, valleys).any():
-        return -1, -1, -1
+    if np.isin(peaks, valleys).any() | (len(peaks) < 2) | (len(valleys) < 2):
+        return -1
 
     # check that peaks and valleys are in order
     hist = np.digitize(valleys, peaks)
     if not np.array([hist[i] == hist[i+1] - 1 for i in range(len(hist) - 1)]).all():
-        return -2, -2, -2
+        return -2
 
     neg_len = lambda x : len(x) * -1
     if len(peaks) <= len(valleys):
@@ -246,8 +246,11 @@ def beat_similarity(x, windowsize, ma_perc, fs):
         s += get_similarity(beat1, beat2)
     try:
         sim = s / len(aligned_beats)
-        sbp = np.mean(x[peaks])
-        dbp = np.mean(x[valleys])
-        return sim, sbp, dbp
+        if get_bp:
+            sbp = np.mean(x[peaks])
+            dbp = np.mean(x[valleys])
+            return sim, sbp, dbp
+        else:
+            return sim
     except ZeroDivisionError:
-        return -3, -3, -3
+        return -3

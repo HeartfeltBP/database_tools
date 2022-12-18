@@ -1,29 +1,22 @@
-import os
-import random
+import ast
 import numpy as np
 import pandas as pd
-import pickle as pkl
-from shutil import rmtree
-from wfdb import rdrecord
+from tqdm import tqdm
 from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, flat_lines, beat_similarity
-from database_tools.preprocessing.Utils import download, window
+from database_tools.preprocessing.Utils import window
 
+import os
 
-class SignalProcessor():
+class VitalSignalProcessor():
     def __init__(
         self,
-        files,
-        output_dir,
+        data_dir,
         win_len,
         fs,
-        used_records,
     ):
-        self._files = files
-        self._output_dir = output_dir
+        self._data_dir = data_dir
         self._win_len = win_len
         self._fs = fs
-
-        self._used_records = used_records
 
         # Metric tracking
         self._mrn     = []
@@ -72,68 +65,58 @@ class SignalProcessor():
         ma_perc=config['ma_perc']
         beat_sim=config['beat_sim']
 
-        random.shuffle(self._files)
-        mrn = 'start'
-        for i, f in enumerate(self._files):
-            last_mrn = mrn
-            mrn = f.split('/')[-2]
-            if last_mrn != mrn:
-                n = 0  # int to count per patient samples
+        print('Running VitalSignalProcessor...')
 
-            # Download data
-            out = self._get_data(f)
-            if out == False:
-                continue
-            else:
-                ppg, abp = out[0], out[1]
+        self._I = 0
+        with open(self._data_dir, 'r') as file:
+            for i, line in enumerate(file):
+                print('Evaluating new line...')
+                line = ast.literal_eval(line.strip('\n').replace('NaN', 'None'))
 
-            # Apply bandpass filter to ppg
-            ppg = bandpass(ppg, low=low, high=high, fs=self._fs)
+                # Get data
+                mrn = line['case_id']
+                ppg, abp = np.array(line['ppg'], dtype=np.float), np.array(line['abp'], dtype=np.float)
+                ppg[np.isnan(ppg)] = 0
+                abp[np.isnan(abp)] = 0
 
-            overlap = int(self._fs / 2)
-            l = self._win_len + overlap
-            idx = window(ppg, l, overlap)
+                # Apply bandpass filter to ppg
+                ppg = bandpass(ppg, low=low, high=high, fs=self._fs)
 
-            for i, j in idx:
-                p = ppg[i:j]
-                a = abp[i:j]
+                overlap = int(self._fs / 2)
+                l = self._win_len + overlap
+                idx = window(ppg, l, overlap)
 
-                # Signal level cleaning
-                out = self._signal_level_check(
-                    mrn=mrn,
-                    p=p,
-                    a=a,
-                    low=low,
-                    high=high,
-                    sim=sim,
-                    df=df,
-                    snr_t=snr_t,
-                    hr_diff=hr_diff,
-                    f0_low=f0_low,
-                    f0_high=f0_high,
-                    abp_min_bounds=abp_min_bounds,
-                    abp_max_bounds=abp_max_bounds,
-                    windowsize=windowsize,
-                    ma_perc=ma_perc,
-                    beat_sim=beat_sim,
-                )
+                print(f'Processing case {mrn}.')
+                for i, j in tqdm(idx, total=len(idx)):
+                    p = ppg[i:j]
+                    a = abp[i:j]
 
-                # Add window if 'valid' is True
-                if not out[0][1]:
-                    self._append_metrics(out[0])
-                else:
-                    # if not os.path.exists('test-data.pkl'):
-                    #     with open('test-data.pkl', 'wb') as f:
-                    #         print('writing test data file')
-                    #         pkl.dump(dict(ppg=ppg, abp=abp), f)
-                    n += 1
-                    self._append_metrics(out[0])
-                    yield (out[1][0], out[1][1])
+                    # Signal level cleaning
+                    out = self._signal_level_check(
+                        mrn=mrn,
+                        p=p,
+                        a=a,
+                        low=low,
+                        high=high,
+                        sim=sim,
+                        df=df,
+                        snr_t=snr_t,
+                        hr_diff=hr_diff,
+                        f0_low=f0_low,
+                        f0_high=f0_high,
+                        abp_min_bounds=abp_min_bounds,
+                        abp_max_bounds=abp_max_bounds,
+                        windowsize=windowsize,
+                        ma_perc=ma_perc,
+                        beat_sim=beat_sim,
+                    )
 
-            self._used_records.append(f)
-            with open(f'{self._output_dir}used_segs.pkl', 'wb') as f:
-                pkl.dump(self._used_records, f)
-            rmtree('physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
+                    # Add window if 'valid' is True
+                    if not out[0][1]:
+                        self._append_metrics(out[0])
+                    else:
+                        self._append_metrics(out[0])
+                        yield (out[1][0], out[1][1], out[1][2])
         return
 
     def save_stats(self, path):
@@ -156,24 +139,6 @@ class SignalProcessor():
         df.to_csv(path, index=False)
         return
 
-    def _get_data(self, path):
-        # Download
-        response1 = download(path + '.hea')
-        response2 = download(path + '.dat')
-        if (response1 != 0) | (response2 != 0):
-            return False
-        else:
-            # Extract signals from record
-            rec = rdrecord(path[8:])  # cut of https:// from path
-            signals = rec.sig_name
-            ppg = rec.p_signal[:, signals.index('PLETH')].astype(np.float64)
-            abp = rec.p_signal[:, signals.index('ABP')].astype(np.float64)
-
-            # Set NaN to 0
-            ppg[np.isnan(ppg)] = 0
-            abp[np.isnan(abp)] = 0
-        return (ppg, abp)
-
     def _signal_level_check(
         self,
         mrn,
@@ -193,6 +158,7 @@ class SignalProcessor():
         ma_perc,
         beat_sim,
     ):
+        p_unmodified = p
         # Align signals in time (output is win_len samples long)
         p, a = align_signals(p, a, win_len=self._win_len, fs=self._fs)
 
@@ -210,8 +176,9 @@ class SignalProcessor():
         f0 = np.array([f0_p, f0_a])
 
         # Check for flat lines
-        flat_p = flat_lines(p)
-        flat_a = flat_lines(a)
+        # flat_p = flat_lines(p)
+        # flat_a = flat_lines(a)
+        flat_p, flat_a = False, False
 
         beat_sim_p = beat_similarity(
             p,
@@ -262,7 +229,7 @@ class SignalProcessor():
                  float(beat_sim_p),
                  float(beat_sim_a),
                 ],
-                [p, a],
+                [mrn, p, a],
             )
         else:
             return (
@@ -280,7 +247,7 @@ class SignalProcessor():
                  float(beat_sim_p),
                  float(beat_sim_a),
                 ],
-                [0, 0],
+                [0, 0, 0],
             )
 
     def _append_metrics(self, data):

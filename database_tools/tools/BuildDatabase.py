@@ -1,6 +1,7 @@
 import json
 import numpy as np
 import pandas as pd
+import pickle as pkl
 from glob import glob
 from tqdm import tqdm
 from database_tools.preprocessing import SignalProcessor
@@ -26,13 +27,14 @@ class BuildDatabase():
     def run(self):
         valid_segs_path = self._output_dir + 'valid_segs.csv'
         used_segs_path = self._output_dir + 'used_segs.pkl'
-        valid_segs = self._get_valid_segs(valid_segs_path, used_segs_path)
+        valid_segs, used_segs = self._get_valid_segs(valid_segs_path, used_segs_path)
 
         sample_gen = SignalProcessor(
             files=valid_segs,
             output_dir=self._output_dir,
             win_len=self._win_len,
             fs=self._fs,
+            used_records=used_segs,
         )
 
         samples = ''
@@ -61,13 +63,14 @@ class BuildDatabase():
     def _get_valid_segs(self, valid_path, used_path):
         df_valid = pd.read_csv(valid_path, names=['url'])
         try:
-            df_used = pd.read_csv(used_path, names=['url'])
+            with open(used_path, 'rb') as f:
+                df_used = pkl.load(f)
             all_valid = set(df_valid['url'])
-            used = set(df_used['url'])
+            used = set(df_used)
             valid = list(all_valid.difference(used))
-            return pd.Series(valid)
+            return pd.Series(valid), list(used)
         except FileNotFoundError:
-            return df_valid['url']
+            return df_valid['url'], []
 
     def _write_to_jsonlines(self, output, outfile):
         with open(outfile, 'w') as f:
