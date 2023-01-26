@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-from datetime import date
 from tqdm import tqdm
 from shutil import rmtree
 from wfdb import rdheader
