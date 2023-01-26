@@ -12,3 +12,7 @@ def build_data_directory(repo_dir, partner):
     os.mkdir(data_dir + 'data/')
     os.mkdir(data_dir + 'data/lines')
     os.mkdir(data_dir + 'data/records')
+    os.mkdir(data_dir + 'data/records/train')
+    os.mkdir(data_dir + 'data/records/val')
+    os.mkdir(data_dir + 'data/records/test')
+    return data_dir
