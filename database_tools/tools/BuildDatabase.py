@@ -45,7 +45,7 @@ class BuildDatabase():
 
             if (n_samples % self._samples_per_file) == 0:
                 fn = str(int(n_samples / self._samples_per_file) - 1).zfill(3)  # file name
-                outfile = self._output_dir + f"data/lines/{self._config['partner']}_{fn}.jsonlines"
+                outfile = self._output_dir + f"data/lines/{partner}_{fn}.jsonlines"
                 self._write_to_jsonlines(samples, outfile)
                 samples = ''
                 if n_samples >= self._max_samples:
