@@ -5,7 +5,7 @@ import pandas as pd
 from shutil import rmtree
 from wfdb import rdrecord
 from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, flat_lines, beat_similarity
-from database_tools.preprocessing.Utils import download, window
+from database_tools.preprocessing.utils import download, window
 
 import os
 import pickle as pkl
