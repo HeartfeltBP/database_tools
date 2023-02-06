@@ -1,76 +1,64 @@
 import json
-import numpy as np
 import pandas as pd
-import pickle as pkl
-from glob import glob
 from tqdm import tqdm
 from database_tools.preprocessing import SignalProcessor
 
 
 class BuildDatabase():
-    def __init__(self,
-                 output_dir,
-                 config,
-                 win_len=1024,
-                 fs=125,
-                 samples_per_file=6000,
-                 max_samples=5000,
-                 data_dir='physionet.org/files/mimic3wdb/1.0/'):
-        self._output_dir = output_dir
+    def __init__(
+        self,
+        data_dir,
+        config,
+        win_len=256,
+        fs=125,
+        samples_per_file=2500,
+        samples_per_patient=500,
+        max_samples=300000,
+    ) -> None:
+        self._data_dir = data_dir
         self._config = config
         self._win_len = win_len
         self._fs = fs
         self._samples_per_file = samples_per_file
+        self._samples_per_patient = samples_per_patient
         self._max_samples = max_samples
-        self._data_dir = data_dir
 
     def run(self):
-        valid_segs_path = self._output_dir + 'valid_segs.csv'
-        used_segs_path = self._output_dir + 'used_segs.pkl'
-        valid_segs, used_segs = self._get_valid_segs(valid_segs_path, used_segs_path)
+        valid_df = self._get_valid_segs(self._data_dir + 'valid_segs.csv')
+        partner = self._data_dir.split('-')[0]
 
+        # Initialize SignalProcessor()
         sample_gen = SignalProcessor(
-            files=valid_segs,
-            output_dir=self._output_dir,
+            partner=partner,
+            valid_df=valid_df,
             win_len=self._win_len,
             fs=self._fs,
-            used_records=used_segs,
+            samples_per_patient=self._samples_per_patient,
         )
 
-        samples = ''
-        try:
-            n_samples = (np.max([int(i.split('/')[-1][7:14]) for i in glob(self._output_dir + 'mimic3/lines/' + '*.jsonlines')]) + 1) * self._samples_per_file
-        except:
-            n_samples = 0
         print('Starting sample generator...')
+
+        samples, n_samples = '', 0
         for ppg, abp in tqdm(sample_gen.run(config=self._config), total=self._max_samples):
             samples += json.dumps(dict(ppg=ppg.tolist(), abp=abp.tolist())) + '\n'
             n_samples += 1
 
             if (n_samples % self._samples_per_file) == 0:
-                file_number = str(int(n_samples / self._samples_per_file) - 1).zfill(7)
-                outfile = self._output_dir + f'mimic3/lines/mimic3_{file_number}.jsonlines'
+                fn = str(int(n_samples / self._samples_per_file) - 1).zfill(3)  # file name
+                outfile = self._output_dir + f"data/lines/{self._config['partner']}_{fn}.jsonlines"
                 self._write_to_jsonlines(samples, outfile)
                 samples = ''
                 if n_samples >= self._max_samples:
                     break
 
         print('Saving stats...')
-        sample_gen.save_stats(self._output_dir + 'mimic3_stats.csv')
+        sample_gen.save_stats(self._data_dir + 'mimic3_stats.csv')
         print('Done!')
         return
 
-    def _get_valid_segs(self, valid_path, used_path):
-        df_valid = pd.read_csv(valid_path, names=['url'])
-        try:
-            with open(used_path, 'rb') as f:
-                df_used = pkl.load(f)
-            all_valid = set(df_valid['url'])
-            used = set(df_used)
-            valid = list(all_valid.difference(used))
-            return pd.Series(valid), list(used)
-        except FileNotFoundError:
-            return df_valid['url'], []
+    def _get_valid_segs(self, valid_path):
+        valid_df = pd.read_csv(valid_path)
+        return valid_df
 
     def _write_to_jsonlines(self, output, outfile):
         with open(outfile, 'w') as f:

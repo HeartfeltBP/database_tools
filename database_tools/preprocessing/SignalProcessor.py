@@ -1,29 +1,30 @@
-import os
+import vitaldb
 import random
 import numpy as np
 import pandas as pd
-import pickle as pkl
 from shutil import rmtree
 from wfdb import rdrecord
 from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, flat_lines, beat_similarity
 from database_tools.preprocessing.Utils import download, window
 
+import os
+import pickle as pkl
+
 
 class SignalProcessor():
     def __init__(
         self,
-        files,
-        output_dir,
+        partner,
+        valid_df,
         win_len,
         fs,
-        used_records,
+        samples_per_patient,
     ):
-        self._files = files
-        self._output_dir = output_dir
+        self._partner = partner
+        self._valid_df = valid_df
         self._win_len = win_len
         self._fs = fs
-
-        self._used_records = used_records
+        self._samples_per_patient = samples_per_patient
 
         # Metric tracking
         self._mrn     = []
@@ -72,16 +73,22 @@ class SignalProcessor():
         ma_perc=config['ma_perc']
         beat_sim=config['beat_sim']
 
-        random.shuffle(self._files)
-        mrn = 'start'
-        for i, f in enumerate(self._files):
-            last_mrn = mrn
-            mrn = f.split('/')[-2]
+        # Extract data from valid_df and shuffle in the same order
+        patient_ids = self._valid_df['id']
+        files = self._valid_df['url']
+        temp = list(zip(patient_ids, files))
+        random.shuffle(temp)
+        patient_ids, files = zip(*temp)
+        patient_ids, files = list(patient_ids), list(files)
+
+        last_mrn = 'start'
+        for i, (mrn, f) in enumerate(zip(patient_ids, files)):
             if last_mrn != mrn:
-                n = 0  # int to count per patient samples
+                n = 0  # int for counting samples per patient
+            last_mrn = mrn
 
             # Download data
-            out = self._get_data(f)
+            out = self._get_data(f, self._partner)
             if out == False:
                 continue
             else:
@@ -95,6 +102,8 @@ class SignalProcessor():
             idx = window(ppg, l, overlap)
 
             for i, j in idx:
+                if n == self._samples_per_patient:
+                    break
                 p = ppg[i:j]
                 a = abp[i:j]
 
@@ -130,9 +139,6 @@ class SignalProcessor():
                     self._append_metrics(out[0])
                     yield (out[1][0], out[1][1])
 
-            self._used_records.append(f)
-            with open(f'{self._output_dir}used_segs.pkl', 'wb') as f:
-                pkl.dump(self._used_records, f)
             rmtree('physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
         return
 
@@ -156,22 +162,23 @@ class SignalProcessor():
         df.to_csv(path, index=False)
         return
 
-    def _get_data(self, path):
-        # Download
-        response1 = download(path + '.hea')
-        response2 = download(path + '.dat')
-        if (response1 != 0) | (response2 != 0):
-            return False
-        else:
-            # Extract signals from record
-            rec = rdrecord(path[8:])  # cut of https:// from path
-            signals = rec.sig_name
-            ppg = rec.p_signal[:, signals.index('PLETH')].astype(np.float64)
-            abp = rec.p_signal[:, signals.index('ABP')].astype(np.float64)
-
-            # Set NaN to 0
-            ppg[np.isnan(ppg)] = 0
-            abp[np.isnan(abp)] = 0
+    def _get_data(self, path, partner):
+        if partner == 'mimic3':
+            response1 = download(path + '.hea')
+            response2 = download(path + '.dat')
+            if (response1 != 0) | (response2 != 0):
+                return False
+            else:
+                # Extract signals from record
+                rec = rdrecord(path[8:])  # cut of https:// from path
+                signals = rec.sig_name
+                ppg = rec.p_signal[:, signals.index('PLETH')].astype(np.float64)
+                abp = rec.p_signal[:, signals.index('ABP')].astype(np.float64)
+        elif partner == 'vital':
+            data = vitaldb.load_case(path, ['ART', 'PLETH'], 1/125)
+            abp, ppg = data[:, 0], data[:, 1]
+        ppg[np.isnan(ppg)] = 0
+        abp[np.isnan(abp)] = 0
         return (ppg, abp)
 
     def _signal_level_check(
