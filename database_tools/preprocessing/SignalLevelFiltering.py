@@ -179,7 +179,7 @@ def flat_lines(x):
             return True
     return False
 
-def beat_similarity(x, windowsize, ma_perc, fs, get_bp=False):
+def beat_similarity(x, windowsize, ma_perc, fs):
     """Calculates beat similarity by segmenting beats at valleys and
        calculating the Pearson correlation coefficient. The final value
        output is the mean of the correlation coefficients calculated from
@@ -245,12 +245,6 @@ def beat_similarity(x, windowsize, ma_perc, fs, get_bp=False):
         beat1, beat2 = make_equal_len(aligned_beats[i], aligned_beats[j])
         s += get_similarity(beat1, beat2)
     try:
-        sim = s / len(aligned_beats)
-        if get_bp:
-            sbp = np.mean(x[peaks])
-            dbp = np.mean(x[valleys])
-            return sim, sbp, dbp
-        else:
-            return sim
+        return s / len(aligned_beats)
     except ZeroDivisionError:
         return -3

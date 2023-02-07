@@ -27,7 +27,8 @@ class BuildDatabase():
         valid_df = self._get_valid_segs(self._data_dir + 'valid_segs.csv')
         partner = self._data_dir.split('-')[0]
 
-        # Initialize SignalProcessor()
+        
+
         sample_gen = SignalProcessor(
             partner=partner,
             valid_df=valid_df,

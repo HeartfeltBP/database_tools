@@ -23,53 +23,6 @@ class ConfigMapper:
         for key, value in config.items():
             object.__setattr__(self, key, value)
 
-@dataclass
-class Window:
-
-    sig: np.ndarray
-    cm: ConfigMapper
-
-    @property
-    def _snr_check(self) -> bool:
-        snr, f0 = get_snr(self.sig, low=self.cm.freq_band[0], high=self.cm.freq_band[1], df=0.2, fs=self.cm.fs)
-        object.__setattr__(self, '_f0', f0)
-        return snr > self.cm.snr
-
-    @property
-    def _hr_check(self) -> bool:
-        return (self._f0 > self.cm.hr_freq_band[0]) & (self._f0 < self.cm.hr_freq_band[1])
-
-    @property
-    def _flat_check(self) -> bool:
-        return not flat_lines(self.sig)
-
-    @property
-    def _beat_check(self) -> bool:
-        beat_sim = beat_similarity(
-            self.sig,
-            windowsize=self.cm.windowsize,
-            ma_perc=self.cm.ma_perc,
-            fs=self.cm.fs,
-        )
-        return beat_sim > self.cm.beat_sim
-
-    @property
-    def _bp_check(self) -> bool:
-        dbp, sbp = np.min(self.sig), np.max(self.sig)
-        dbp_check = (dbp > self.cm.dbp_bounds[0]) & (dbp < self.cm.dbp_bounds[1])
-        sbp_check = (sbp > self.cm.sbp_bounds[0]) & (sbp < self.cm.sbp_bounds[1])
-        return dbp_check & sbp_check
-
-    @property
-    def _nan_check(self) -> bool:
-        return
-
-    @property
-    def valid(self) -> bool:
-        return
-
-def congruency_check(ppg: Window, abp: Window) -> bool:
-    return
 
 class SignalProcessor():
     def __init__(
@@ -130,7 +83,7 @@ class SignalProcessor():
         patient_ids, files = list(patient_ids), list(files)
 
         last_mrn = 'start'
-        for mrn, f in zip(patient_ids, files):
+        for _, (mrn, f) in enumerate(zip(patient_ids, files)):
             if last_mrn != mrn:
                 n = 0  # int for counting samples per patient
             last_mrn = mrn
@@ -165,6 +118,26 @@ class SignalProcessor():
                     yield (out[1][0], out[1][1])
 
             rmtree('physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
+        return
+
+    def save_stats(self, path):
+        df = pd.DataFrame(
+            dict(
+                mrn=self._mrn,
+                valid=self._val,
+                time_similarity=self._t_sim,
+                spectral_similarity=self._f_sim,
+                ppg_snr=self._ppg_snr,
+                abp_snr=self._abp_snr,
+                ppg_hr=self._ppg_hr,
+                abp_hr=self._abp_hr,
+                sbp=self._sbp,
+                dbp=self._dbp,
+                ppg_beat_sim=self._ppg_beat_sim,
+                abp_beat_sim=self._abp_beat_sim,
+            )
+        )
+        df.to_csv(path, index=False)
         return
 
     def _get_data(self, path, partner):
@@ -272,23 +245,3 @@ class SignalProcessor():
         self._sbp.append(data[9])
         self._ppg_beat_sim.append(data[10])
         self._abp_beat_sim.append(data[11])
-
-    def save_stats(self, path):
-        df = pd.DataFrame(
-            dict(
-                mrn=self._mrn,
-                valid=self._val,
-                time_similarity=self._t_sim,
-                spectral_similarity=self._f_sim,
-                ppg_snr=self._ppg_snr,
-                abp_snr=self._abp_snr,
-                ppg_hr=self._ppg_hr,
-                abp_hr=self._abp_hr,
-                sbp=self._sbp,
-                dbp=self._dbp,
-                ppg_beat_sim=self._ppg_beat_sim,
-                abp_beat_sim=self._abp_beat_sim,
-            )
-        )
-        df.to_csv(path, index=False)
-        return

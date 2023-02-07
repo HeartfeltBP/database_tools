@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, flat_lines, beat_similarity
-from database_tools.preprocessing.Utils import window
+from database_tools.preprocessing.utils import window
 
 import os
 
