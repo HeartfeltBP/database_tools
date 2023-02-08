@@ -219,6 +219,8 @@ def beat_similarity(x, windowsize, ma_perc, fs):
         aligned_beats.append(b_new)
 
     aligned_beats = [b for b in aligned_beats if len(b[b != 0]) > fs / 2]
+
+    # Get a list of every combination of beats (ie 3 beats -> [[0, 1], [0, 2], [1, 2]])
     idx = [(i, j) for ((i, _), (j, _)) in itertools.combinations(enumerate([i for i in range(len(aligned_beats))]), 2)]
 
     s = 0

@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from typing import List, Tuple
 from dataclasses import dataclass
 from database_tools.preprocessing.utils import ConfigMapper
@@ -46,6 +47,56 @@ class Window:
     def valid(self) -> bool:
         v = [object.__getattribute__(self, '_' + c + '_check') for c in self.checks]
         return np.array(v).all()
+
+
+class MetricLogger:
+
+    stats: dict = dict(
+        mrn=[],
+        valid=[],
+        t_sim=[],
+        f_sim=[],
+        ppg_snr=[],
+        abp_snr=[],
+        ppg_hr=[],
+        abp_hr=[],
+        dbp=[],
+        sbp=[],
+        ppg_beat_sim=[],
+        abp_beat_sim=[],
+    )
+    valid_samples: int = 0
+    rejected_samples: int = 0
+    patient_samples: int = 0
+    prev_mrn: str = ''
+
+    def _update_stats(self, mrn: str, is_valid: bool, time_sim: float, spec_sim: float, ppg: Window, abp: Window):
+        if self.prev_mrn != mrn:
+            self.patient_samples = 0
+            self.prev_mrn = mrn
+
+        if is_valid:
+            self.valid_samples += 1
+        else:
+            self.rejected_samples += 1
+
+        self.stats['mrn'].append(mrn)
+        self.stats['valid'].append(is_valid)
+        self.stats['t_sim'].append(time_sim)
+        self.stats['f_sim'].append(spec_sim)
+        self.stats['ppg_snr'].append(ppg.snr)
+        self.stats['abp_snr'].append(abp.snr)
+        self.stats['ppg_hr'].append(ppg.f0 * 60)
+        self.stats['abp_hr'].append(abp.f0 * 60)
+        self.stats['dbp'].append(abp.dbp)
+        self.stats['sbp'].append(abp.sbp)
+        self.stats['ppg_beat_sim'].append(ppg.beat_sim)
+        self.stats['abp_beat_sim'].append(abp.beat_sim)
+
+    def save_stats(self, path):
+        df = pd.DataFrame(self.stats)
+        df.to_csv(path, index=False)
+        print(f'Saving dataset stats to {path}')
 
 def congruency_check(ppg: Window, abp: Window, cm: ConfigMapper) -> Tuple[float, float, bool]:
     """Performs checks between ppg and abp windows.
