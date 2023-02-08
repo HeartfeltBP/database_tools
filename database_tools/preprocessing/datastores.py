@@ -1,7 +1,7 @@
 import numpy as np
 from typing import List, Tuple
 from dataclasses import dataclass
-from database_tools.tools import ConfigMapper
+from database_tools.preprocessing.utils import ConfigMapper
 from database_tools.preprocessing.functions import bandpass, get_similarity, get_snr, flat_lines, beat_similarity
 
 
