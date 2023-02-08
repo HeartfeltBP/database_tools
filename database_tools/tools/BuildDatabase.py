@@ -4,13 +4,11 @@ import shutil
 import random
 import numpy as np
 import pandas as pd
-
 import vitaldb
 from wfdb import rdrecord
-from database_tools.preprocessing.utils import download, window
-from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals
-
-from database_tools.preprocessing.SignalProcessor import ConfigMapper, Window, congruency_check
+from database_tools.tools import ConfigMapper, download, window
+from database_tools.preprocessing.functions import bandpass, align_signals
+from database_tools.preprocessing.datastores import Window
 
 
 class BuildDatabase():
@@ -71,23 +69,32 @@ class BuildDatabase():
 
                 p, a = align_signals(p, a, win_len=cm.win_len, fs=cm.fs)
 
-                p_win = Window(p, cm, ['snr', 'hr', 'flat', 'beat'])
+                # Evaluate ppg
+                p_win = Window(p, cm, cm.checks)
                 p_valid = p_win.valid
-                a_win = Window(a, cm, ['snr', 'hr', 'flat', 'beat', 'bp'])
+
+                # Evaluate abp
+                a_win = Window(a, cm, cm.checks + ['bp'])
                 a_valid = a_win.valid
-                self._append_metrics(p_win, a_win)
+
+                # Evaluate ppg vs abp
+                time_sim, spec_sim, congruency_check = congruency_check(p_win, a_win, cm)
+
+                is_valid = p_valid & a_valid & congruency_check
+
+                self._append_metrics(mrn, is_valid, time_sim, spec_sim, p_win, a_win)
 
                 # congruency check performs similarity and hr delta checks
-                if p_valid & a_valid & congruency_check(p_win, a_win, cm):
-                    samples += json.dumps(dict(ppg=ppg.tolist(), abp=abp.tolist())) + '\n'
+                if is_valid:
+                    json_output += json.dumps(dict(ppg=ppg.tolist(), abp=abp.tolist())) + '\n'
                     total_samples += 1
                     sys.stdout.flush()
                     sys.stdout.write('%s\r' % str(total_samples))
 
                     # Write to file when count is reached. 
                     if (total_samples % self._samples_per_file) == 0:
-                        fn = str(int(total_samples / self._samples_per_file) - 1).zfill(3)  # file name
-                        outfile = self._data_dir + f'data/lines/{partner}_{fn}.jsonlines'
+                        file_name = str(int(total_samples / self._samples_per_file) - 1).zfill(3)
+                        outfile = self._data_dir + f'data/lines/{partner}_{file_name}.jsonlines'
                         self._write_to_jsonlines(json_output, outfile)
                         json_output = ''
                         if total_samples >= self._max_samples:
@@ -125,12 +132,40 @@ class BuildDatabase():
         abp[np.isnan(abp)] = 0
         return (ppg, abp)
 
-    def _append_metrics(self, ppg: Window, abp: Window):
-        return
+    def _append_metrics(self, mrn: str, is_valid: bool, time_sim: float, spec_sim: float, ppg: Window, abp: Window) -> None:
+        self.mrn.append(mrn)
+        self.val.append(is_valid)
+        self.t_sim.append(time_sim)
+        self.f_sim.append(spec_sim)
+        self.ppg_snr.append(ppg.snr)
+        self.abp_snr.append(abp.snr)
+        self.ppg_hr.append(ppg.f0 * 60)
+        self.abp_hr.append(abp.f0 * 60)
+        self.dbp.append(abp.dbp)
+        self.sbp.append(abp.sbp)
+        self.ppg_beat_sim.append(ppg.beat_sim)
+        self.abp_beat_sim.append(abp.beat_sim)
 
     def _write_to_jsonlines(self, output, outfile):
         with open(outfile, 'w') as f:
             f.write(output)
 
-    def save_stats(self):
+    def save_stats(self, file_name):
+        df = pd.DataFrame(
+            dict(
+                mrn=self.mrn,
+                valid=self.val,
+                time_similarity=self.t_sim,
+                spectral_similarity=self.f_sim,
+                ppg_snr=self.ppg_snr,
+                abp_snr=self.abp_snr,
+                ppg_hr=self.ppg_hr,
+                abp_hr=self.abp_hr,
+                sbp=self.sbp,
+                dbp=self.dbp,
+                ppg_beat_sim=self.ppg_beat_sim,
+                abp_beat_sim=self.abp_beat_sim,
+            )
+        )
+        df.to_csv(self._data_dir + file_name, index=False)
         return

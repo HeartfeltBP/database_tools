@@ -2,6 +2,18 @@ import os
 import typing
 import numpy as np
 from datetime import datetime
+from dataclasses import dataclass, InitVar
+
+
+@dataclass(frozen=True)
+class ConfigMapper:
+
+    config: InitVar[dict]
+
+    def __post_init__(self, config: dict):
+        for key, value in config.items():
+            object.__setattr__(self, key, value)
+            
 
 def get_iso_dt() -> None:
     """Get date in ISO string format.

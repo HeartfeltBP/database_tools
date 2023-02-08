@@ -4,7 +4,7 @@ from scipy import signal, integrate
 from heartpy.preprocessing import flip_signal
 from heartpy.peakdetection import detect_peaks
 from heartpy.datautils import rolling_mean
-from database_tools.preprocessing.utils import make_equal_len
+from database_tools.tools import make_equal_len
 
 def bandpass(x, low, high, fs):
     """

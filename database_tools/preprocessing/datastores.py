@@ -1,16 +1,9 @@
 import numpy as np
-from typing import List
-from database_tools.preprocessing.SignalLevelFiltering import bandpass, align_signals, get_similarity, get_snr, flat_lines, beat_similarity
-from dataclasses import dataclass, InitVar
+from typing import List, Tuple
+from dataclasses import dataclass
+from database_tools.tools import ConfigMapper
+from database_tools.preprocessing.functions import bandpass, get_similarity, get_snr, flat_lines, beat_similarity
 
-@dataclass(frozen=True)
-class ConfigMapper:
-
-    config: InitVar[dict]
-
-    def __post_init__(self, config: dict):
-        for key, value in config.items():
-            object.__setattr__(self, key, value)
 
 @dataclass
 class Window:
@@ -54,7 +47,7 @@ class Window:
         v = [object.__getattribute__(self, '_' + c + '_check') for c in self.checks]
         return np.array(v).all()
 
-def congruency_check(ppg: Window, abp: Window, cm: ConfigMapper):
+def congruency_check(ppg: Window, abp: Window, cm: ConfigMapper) -> Tuple[float, float, bool]:
     """Performs checks between ppg and abp windows.
 
     Args:
@@ -71,4 +64,5 @@ def congruency_check(ppg: Window, abp: Window, cm: ConfigMapper):
     spec_sim = get_similarity(ppg_f, abp_f)
     sim_check = (time_sim > cm.sim) & (spec_sim > cm.sim)
     hr_delta_check = np.abs(ppg.f0 - abp.f0) > cm.hr_delta
-    return sim_check & hr_delta_check
+    congruency_check = sim_check & hr_delta_check
+    return (time_sim, spec_sim, congruency_check)
