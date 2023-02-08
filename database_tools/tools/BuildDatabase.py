@@ -53,7 +53,7 @@ class BuildDatabase():
                 patient_samples = 0  # samples per patient
                 prev_mrn = mrn
 
-            out = self._get_data(f, partner)
+            out = self._get_data(f, partner, cm)
             if out:
                 ppg, abp = out[0], out[1]
             else:
@@ -107,8 +107,6 @@ class BuildDatabase():
                 else:
                     rejected_samples += 1
                     print(f'Rejected samples: {rejected_samples} --- Samples collected: {total_samples}', end="\r")
-                # if rejected_samples >= 10000:
-                #     return
 
             # Delete data when done with a patient
             shutil.rmtree('physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
@@ -125,7 +123,7 @@ class BuildDatabase():
         patient_ids, files = list(patient_ids), list(files)
         return (patient_ids, files)
 
-    def _get_data(self, path, partner):
+    def _get_data(self, path, partner, cm):
         print(f'Downloading {path}')
         if partner == 'mimic3':
             r1 = download(path + '.hea')
@@ -141,7 +139,7 @@ class BuildDatabase():
                 abp[np.isnan(abp)] = 0
             return (ppg, abp)
         elif partner == 'vital':
-            data = vitaldb.load_case(path, ['ART', 'PLETH'], 1/125)
+            data = vitaldb.load_case(path, ['ART', 'PLETH'], 1 / cm.fs)
             abp, ppg = data[:, 0], data[:, 1]
             ppg[np.isnan(ppg)] = 0
             abp[np.isnan(abp)] = 0
