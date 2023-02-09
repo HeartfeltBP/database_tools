@@ -1,73 +1,123 @@
 import json
+import shutil
+import random
 import numpy as np
 import pandas as pd
-from glob import glob
-from tqdm import tqdm
-from database_tools.preprocessing import SignalProcessor
+import vitaldb
+from wfdb import rdrecord
+from database_tools.preprocessing.utils import ConfigMapper, download, window
+from database_tools.preprocessing.functions import bandpass, align_signals
+from database_tools.preprocessing.datastores import Window, MetricLogger, congruency_check
 
 
 class BuildDatabase():
-    def __init__(self,
-                 output_dir,
-                 config,
-                 win_len=1024,
-                 fs=125,
-                 samples_per_file=6000,
-                 max_samples=5000,
-                 data_dir='physionet.org/files/mimic3wdb/1.0/'):
-        self._output_dir = output_dir
-        self._config = config
-        self._win_len = win_len
-        self._fs = fs
-        self._samples_per_file = samples_per_file
-        self._max_samples = max_samples
+    def __init__(
+        self,
+        data_dir,
+        samples_per_file=2500,
+        samples_per_patient=500,
+        max_samples=300000,
+    ) -> None:
         self._data_dir = data_dir
+        self._samples_per_file = samples_per_file
+        self._samples_per_patient = samples_per_patient
+        self._max_samples = max_samples
 
-    def run(self):
-        valid_segs_path = self._output_dir + 'valid_segs.csv'
-        used_segs_path = self._output_dir + 'used_segs.pkl'
-        valid_segs = self._get_valid_segs(valid_segs_path, used_segs_path)
+    def run(self, cm: ConfigMapper):
+        logger = MetricLogger()
 
-        sample_gen = SignalProcessor(
-            files=valid_segs,
-            output_dir=self._output_dir,
-            win_len=self._win_len,
-            fs=self._fs,
-        )
+        print('Gettings valid segments...')
+        patient_ids, files = self._get_valid_segs(self._data_dir + 'valid_segs.csv')
+        partner = self._data_dir.split('/')[-2].split('-')[0]
 
-        samples = ''
-        try:
-            n_samples = (np.max([int(i.split('/')[-1][7:14]) for i in glob(self._output_dir + 'mimic3/lines/' + '*.jsonlines')]) + 1) * self._samples_per_file
-        except:
-            n_samples = 0
-        print('Starting sample generator...')
-        for ppg, abp in tqdm(sample_gen.run(config=self._config), total=self._max_samples):
-            samples += json.dumps(dict(ppg=ppg.tolist(), abp=abp.tolist())) + '\n'
-            n_samples += 1
+        print('Collecting samples...')
+        json_output = ''
+        for mrn, f in zip(patient_ids, files):
+            out = self._get_data(f, partner, cm)
+            if out:
+                ppg, abp = out[0], out[1]
+            else:
+                continue
+            shutil.rmtree('physionet.org/files/mimic3wdb/1.0/', ignore_errors=True)
 
-            if (n_samples % self._samples_per_file) == 0:
-                file_number = str(int(n_samples / self._samples_per_file) - 1).zfill(7)
-                outfile = self._output_dir + f'mimic3/lines/mimic3_{file_number}.jsonlines'
-                self._write_to_jsonlines(samples, outfile)
-                samples = ''
-                if n_samples >= self._max_samples:
+            # Apply bandpass filter to ppg
+            ppg = bandpass(ppg, low=cm.freq_band[0], high=cm.freq_band[1], fs=cm.fs)
+
+            overlap = int(cm.fs / 2)
+            l = cm.win_len + overlap
+            idx = window(ppg, l, overlap)
+
+            for i, j in idx:
+                if logger.patient_samples == self._samples_per_patient:
                     break
+                p = ppg[i:j]
+                a = abp[i:j]
 
-        print('Saving stats...')
-        sample_gen.save_stats(self._output_dir + 'mimic3_stats.csv')
-        print('Done!')
+                p, a = align_signals(p, a, win_len=cm.win_len, fs=cm.fs)
+
+                # Evaluate ppg
+                p_win = Window(p, cm, cm.checks)
+                p_valid = p_win.valid
+
+                # Evaluate abp
+                a_win = Window(a, cm, cm.checks + ['bp'])
+                a_valid = a_win.valid
+
+                # Evaluate ppg vs abp
+                time_sim, spec_sim, cong_check = congruency_check(p_win, a_win, cm)
+                is_valid = p_valid & a_valid & cong_check
+
+                logger._update_stats(mrn, is_valid, time_sim, spec_sim, p_win, a_win)  # update logger
+
+                if is_valid:
+                    json_output += json.dumps(dict(ppg=p.tolist(), abp=a.tolist())) + '\n'
+                    print(f'Rejected samples: {logger.rejected_samples} --- Samples collected: {logger.valid_samples}', end="\r")
+
+                    # Write to file when count is reached. 
+                    if (logger.valid_samples % self._samples_per_file) == 0:
+                        file_name = str(int(logger.valid_samples / self._samples_per_file) - 1).zfill(3)
+                        outfile = self._data_dir + f'data/lines/{partner}_{file_name}.jsonlines'
+                        self._write_to_jsonlines(json_output, outfile)
+                        json_output = ''
+                        if logger.valid_samples >= self._max_samples:
+                            logger.save_stats(self._data_dir + f'{partner}_stats.csv')
+                            print('Done!')
+                            return
+                else:
+                    print(f'Rejected samples: {logger.rejected_samples} --- Samples collected: {logger.valid_samples}', end="\r")
         return
 
-    def _get_valid_segs(self, valid_path, used_path):
-        df_valid = pd.read_csv(valid_path, names=['url'])
-        try:
-            df_used = pd.read_csv(used_path, names=['url'])
-            all_valid = set(df_valid['url'])
-            used = set(df_used['url'])
-            valid = list(all_valid.difference(used))
-            return pd.Series(valid)
-        except FileNotFoundError:
-            return df_valid['url']
+    def _get_valid_segs(self, valid_path):
+        valid_df = pd.read_csv(valid_path)
+
+        # Extract data from valid_df and shuffle in the same order
+        temp = list(zip(valid_df['id'], valid_df['url']))
+        random.shuffle(temp)
+        patient_ids, files = [list(t) for t in zip(*temp)]
+        patient_ids, files = list(patient_ids), list(files)
+        return (patient_ids, files)
+
+    def _get_data(self, path, partner, cm):
+        print(f'Downloading {path}')
+        if partner == 'mimic3':
+            r1 = download(path + '.hea')
+            r2 = download(path + '.dat')
+            if (r1 != 0) | (r2 != 0):
+                return False
+            else:
+                rec = rdrecord(path[8:])  # path w/o https://
+                signals = rec.sig_name
+                ppg = rec.p_signal[:, signals.index('PLETH')].astype(np.float64)
+                abp = rec.p_signal[:, signals.index('ABP')].astype(np.float64)
+                ppg[np.isnan(ppg)] = 0
+                abp[np.isnan(abp)] = 0
+            return (ppg, abp)
+        elif partner == 'vital':
+            data = vitaldb.load_case(path, ['ART', 'PLETH'], 1 / cm.fs)
+            abp, ppg = data[:, 0], data[:, 1]
+            ppg[np.isnan(ppg)] = 0
+            abp[np.isnan(abp)] = 0
+            return (ppg, abp)
 
     def _write_to_jsonlines(self, output, outfile):
         with open(outfile, 'w') as f:

@@ -139,3 +139,5 @@ records/
 data-*/
 */artifacts
 */wandb
+vitaldb/
+*-data-*

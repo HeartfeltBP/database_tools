@@ -85,7 +85,7 @@ class RecordsHandler():
             num_samples = 0
             examples = []
 
-            total = len(idx) * split_strategy[i]
+            total = int(len(idx) * split_strategy[i])
             for win in tqdm(zip(*split_data.values()), total=int(total)):
                 examples.append(
                     self._full_wave_window_example(
@@ -103,7 +103,7 @@ class RecordsHandler():
 
     def _compile_lines(self, path):
         frames = []
-        for path in glob.glob(f'{path}lines/mimic3_*.jsonlines'):
+        for path in glob.glob(f'{path}lines/*.jsonlines'):
             frames.append(pd.read_json(path, lines=True))
         df = pd.concat(frames, ignore_index=True)
         return df

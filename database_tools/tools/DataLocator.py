@@ -1,15 +1,16 @@
 import os
 import pandas as pd
-from datetime import date
 from tqdm import tqdm
 from shutil import rmtree
 from wfdb import rdheader
 
 
-class DataLocator():
-    def __init__(self,
-                 data_dir='/path/to/data/dir/',
-                 mimic3_dir='physionet.org/files/mimic3wdb/1.0/'):
+class MimicDataLocator():
+    def __init__(
+        self,
+        data_dir='/path/to/data/dir/',
+        mimic3_dir='physionet.org/files/mimic3wdb/1.0/',
+    ) -> None:
         self._data_dir = data_dir
         self._mimic3_dir = mimic3_dir
 
@@ -17,10 +18,8 @@ class DataLocator():
         records_path = self._mimic3_dir + 'RECORDS-adults'
         os.system(f'wget -q -np https://{records_path} -P {self._data_dir}')
 
-        valid_segs = []
-        i = 0
-        for folder in tqdm(self._mrn_generator(self._data_dir + 'RECORDS-adults'), total=59344):
-            i += 1
+        patient_ids, valid_segs = [], []
+        for i, folder in tqdm(enumerate(self._mrn_generator(self._data_dir + 'RECORDS-adults')), total=59344):
             layout = self._get_layout(folder)
             if not layout:
                 continue
@@ -29,11 +28,13 @@ class DataLocator():
             master_header = self._get_master_header(folder)
             if not master_header:
                 continue
-            valid_segs += self._valid_segments(folder, master_header)
+            temp = self._valid_segments(folder, master_header)
+            patient_ids += [folder.split('/')[1]] * len(temp)
+            valid_segs += temp
             if (i % 100) == 0:
                 rmtree(self._mimic3_dir, ignore_errors=True)
 
-        df = pd.DataFrame(valid_segs)
+        df = pd.DataFrame(dict(id=patient_ids, url=valid_segs))
         df.to_csv(self._data_dir + 'valid_segs.csv', index=False)
         return
 
