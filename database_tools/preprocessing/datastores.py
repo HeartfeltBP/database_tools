@@ -77,6 +77,7 @@ class MetricLogger:
 
         if is_valid:
             self.valid_samples += 1
+            self.patient_samples += 1
         else:
             self.rejected_samples += 1
 
