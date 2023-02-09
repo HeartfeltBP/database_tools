@@ -4,7 +4,7 @@ from scipy import signal, integrate
 from heartpy.preprocessing import flip_signal
 from heartpy.peakdetection import detect_peaks
 from heartpy.datautils import rolling_mean
-from database_tools.preprocessing.Utils import make_equal_len
+from database_tools.preprocessing.utils import make_equal_len
 
 def bandpass(x, low, high, fs):
     """
@@ -179,14 +179,14 @@ def flat_lines(x):
             return True
     return False
 
-def beat_similarity(x, windowsize, ma_perc, fs, get_bp=False):
+def beat_similarity(x, windowsize, ma_perc, fs):
     """Calculates beat similarity by segmenting beats at valleys and
        calculating the Pearson correlation coefficient. The final value
        output is the mean of the correlation coefficients calculated from
        every combination (n=2) of beats in the signal.
-       
-       This function also doubles for checking the number of beats and returns
-       -1 if it fails.
+
+       Returns -1 if there are less than 2 beats.
+       ZeroDivisionError returns -2.
 
     Args:
         x (np.ndarray): Cardiac signal.
@@ -195,7 +195,7 @@ def beat_similarity(x, windowsize, ma_perc, fs, get_bp=False):
         fs (int): Sampling rate of cardiac signal.
 
     Returns:
-        s: Normalized correlation coeffient. Segmentation failure results in -1.
+        (float): Mean of beat correlation coeffients.
     """
     pad_width = 19
     x_pad = np.pad(x, pad_width=[pad_width, 0], constant_values=[x[0]])
@@ -204,40 +204,23 @@ def beat_similarity(x, windowsize, ma_perc, fs, get_bp=False):
     rol_mean = rolling_mean(x_pad, windowsize=windowsize, sample_rate=fs)
     peaks = detect_peaks(x_pad, rol_mean, ma_perc=ma_perc, sample_rate=fs)['peaklist']
     peaks = np.array(peaks) - pad_width - 1
-    
-    flip = flip_signal(x_pad)
-    rol_mean = rolling_mean(flip, windowsize=windowsize, sample_rate=fs)
-    valleys = detect_peaks(flip, rol_mean, ma_perc=ma_perc, sample_rate=fs)['peaklist']
-    valleys = np.array(valleys) - pad_width - 1
 
     # check no peaks are valleys
-    if np.isin(peaks, valleys).any() | (len(peaks) < 2) | (len(valleys) < 2):
+    if (len(peaks) < 2):
         return -1
 
-    # check that peaks and valleys are in order
-    hist = np.digitize(valleys, peaks)
-    if not np.array([hist[i] == hist[i+1] - 1 for i in range(len(hist) - 1)]).all():
-        return -2
-
     neg_len = lambda x : len(x) * -1
-    if len(peaks) <= len(valleys):
-        beats = sorted(np.split(x, valleys), key=neg_len)
+    beats = sorted(np.split(x, peaks), key=neg_len)
 
-        aligned_beats = [beats[0]]
+    aligned_beats = [beats[0]]
 
-        for i, b in enumerate(beats[1::]):
-            b_new = np.pad(b, pad_width=[len(beats[0]) - len(b), 0])
-            aligned_beats.append(b_new)
-    else:
-        beats = sorted(np.split(x, valleys[1::]), key=neg_len)
-
-        aligned_beats = [beats[0]]
-
-        for i, b in enumerate(beats[1::]):
-            b_new = np.pad(b, pad_width=[np.abs(peaks[0] - (peaks[i + 1] - valleys[i])), 0])
-            aligned_beats.append(b_new)
+    for i, b in enumerate(beats[1::]):
+        b_new = np.pad(b, pad_width=[len(beats[0]) - len(b), 0])
+        aligned_beats.append(b_new)
 
     aligned_beats = [b for b in aligned_beats if len(b[b != 0]) > fs / 2]
+
+    # Get a list of every combination of beats (ie 3 beats -> [[0, 1], [0, 2], [1, 2]])
     idx = [(i, j) for ((i, _), (j, _)) in itertools.combinations(enumerate([i for i in range(len(aligned_beats))]), 2)]
 
     s = 0
@@ -245,12 +228,6 @@ def beat_similarity(x, windowsize, ma_perc, fs, get_bp=False):
         beat1, beat2 = make_equal_len(aligned_beats[i], aligned_beats[j])
         s += get_similarity(beat1, beat2)
     try:
-        sim = s / len(aligned_beats)
-        if get_bp:
-            sbp = np.mean(x[peaks])
-            dbp = np.mean(x[valleys])
-            return sim, sbp, dbp
-        else:
-            return sim
+        return s / len(aligned_beats)
     except ZeroDivisionError:
-        return -3
+        return -2
