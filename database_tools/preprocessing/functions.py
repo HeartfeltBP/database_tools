@@ -1,7 +1,6 @@
 import itertools
 import numpy as np
 from scipy import signal, integrate
-from heartpy.preprocessing import flip_signal
 from heartpy.peakdetection import detect_peaks
 from heartpy.datautils import rolling_mean
 from database_tools.preprocessing.utils import make_equal_len
@@ -170,14 +169,10 @@ def flat_lines(x):
         x (np.ndarray): Signal to process.
 
     Returns:
-        bool: True if flat lines are present and False otherwise.
+        bool: True if n identical values exist consecutively in x.
     """
-    for i, val in enumerate(x):
-        if (i + 2) >= len(x):
-            break
-        if (x[i + 1] == val) & (x[i + 2] == val):
-            return True
-    return False
+    n = 4
+    return any(sum(1 for _ in g) > (n - 1) for _, g in itertools.groupby(x))
 
 def beat_similarity(x, windowsize, ma_perc, fs):
     """Calculates beat similarity by segmenting beats at valleys and

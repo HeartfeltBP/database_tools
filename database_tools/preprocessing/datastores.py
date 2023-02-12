@@ -1,9 +1,12 @@
+import logging
 import numpy as np
 import pandas as pd
 from typing import List, Tuple
 from dataclasses import dataclass
 from database_tools.preprocessing.utils import ConfigMapper
 from database_tools.preprocessing.functions import bandpass, get_similarity, get_snr, flat_lines, beat_similarity
+
+logging.basicConfig(level=logging.INFO)
 
 
 @dataclass
@@ -54,8 +57,8 @@ class MetricLogger:
     stats: dict = dict(
         mrn=[],
         valid=[],
-        t_sim=[],
-        f_sim=[],
+        time_sim=[],
+        spec_sim=[],
         ppg_snr=[],
         abp_snr=[],
         ppg_hr=[],
@@ -64,13 +67,15 @@ class MetricLogger:
         sbp=[],
         ppg_beat_sim=[],
         abp_beat_sim=[],
+        # flat_ppg=[],
+        # flat_abp=[],
     )
     valid_samples: int = 0
     rejected_samples: int = 0
     patient_samples: int = 0
     prev_mrn: str = ''
 
-    def _update_stats(self, mrn: str, is_valid: bool, time_sim: float, spec_sim: float, ppg: Window, abp: Window):
+    def update_stats(self, mrn: str, is_valid: bool, time_sim: float, spec_sim: float, ppg: Window, abp: Window) -> None:
         if self.prev_mrn != mrn:
             self.patient_samples = 0
             self.prev_mrn = mrn
@@ -83,8 +88,8 @@ class MetricLogger:
 
         self.stats['mrn'].append(mrn)
         self.stats['valid'].append(is_valid)
-        self.stats['t_sim'].append(time_sim)
-        self.stats['f_sim'].append(spec_sim)
+        self.stats['time_sim'].append(time_sim)
+        self.stats['spec_sim'].append(spec_sim)
         self.stats['ppg_snr'].append(ppg.snr)
         self.stats['abp_snr'].append(abp.snr)
         self.stats['ppg_hr'].append(ppg.f0 * 60)
@@ -93,6 +98,11 @@ class MetricLogger:
         self.stats['sbp'].append(abp.sbp)
         self.stats['ppg_beat_sim'].append(ppg.beat_sim)
         self.stats['abp_beat_sim'].append(abp.beat_sim)
+        # self.stats['flat_ppg'].append(ppg._flat_check)
+        # self.stats['flat_abp'].append(abp._flat_check)
+        # logging.info(f'Rejected samples: {self.rejected_samples} --- Samples collected: {self.valid_samples}')
+        # if self.rejected_samples % 1000 == 0:
+        #     print(f'Rejected samples: {self.rejected_samples} --- Samples collected: {self.valid_samples}')
 
     def save_stats(self, path):
         df = pd.DataFrame(self.stats)
