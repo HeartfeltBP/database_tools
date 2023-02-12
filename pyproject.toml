@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "database_tools"
+name = "heartfelt_tools"
 version = "1.0.0"
 description = "For compiling MIMIC-III waveform data into an ML ready database."
 authors = ["Cameron Johnson"]
