@@ -4,6 +4,7 @@ import random
 import numpy as np
 import pandas as pd
 import vitaldb
+from tqdm.notebook import tqdm
 from wfdb import rdrecord
 from database_tools.preprocessing.utils import ConfigMapper, download, window
 from database_tools.preprocessing.functions import bandpass, align_signals
@@ -47,9 +48,8 @@ class BuildDatabase():
             l = cm.win_len + overlap
             idx = window(ppg, l, overlap)
 
-            for i, j in idx:
-                if logger.patient_samples == self._samples_per_patient:
-                    break
+            print(f'Rejected samples: {logger.rejected_samples} --- Samples collected: {logger.valid_samples}')
+            for i, j in tqdm(idx):
                 p = ppg[i:j]
                 a = abp[i:j]
 
@@ -67,11 +67,10 @@ class BuildDatabase():
                 time_sim, spec_sim, cong_check = congruency_check(p_win, a_win, cm)
                 is_valid = p_valid & a_valid & cong_check
 
-                logger._update_stats(mrn, is_valid, time_sim, spec_sim, p_win, a_win)  # update logger
+                logger.update_stats(mrn, is_valid, time_sim, spec_sim, p_win, a_win)  # update logger
 
                 if is_valid:
                     json_output += json.dumps(dict(ppg=p.tolist(), abp=a.tolist())) + '\n'
-                    print(f'Rejected samples: {logger.rejected_samples} --- Samples collected: {logger.valid_samples}', end="\r")
 
                     # Write to file when count is reached. 
                     if (logger.valid_samples % self._samples_per_file) == 0:
@@ -83,8 +82,8 @@ class BuildDatabase():
                             logger.save_stats(self._data_dir + f'{partner}_stats.csv')
                             print('Done!')
                             return
-                else:
-                    print(f'Rejected samples: {logger.rejected_samples} --- Samples collected: {logger.valid_samples}', end="\r")
+                if logger.patient_samples == self._samples_per_patient:  # logger.mrn will update before this is reached again
+                    break
         return
 
     def _get_valid_segs(self, valid_path):
@@ -98,7 +97,6 @@ class BuildDatabase():
         return (patient_ids, files)
 
     def _get_data(self, path, partner, cm):
-        print(f'Downloading {path}')
         if partner == 'mimic3':
             r1 = download(path + '.hea')
             r2 = download(path + '.dat')
