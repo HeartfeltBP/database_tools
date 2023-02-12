@@ -172,7 +172,7 @@ def full_wave_parse_window_function(example_proto):
     label = tf.reshape(features['abp'], (256, 1))
     return inputs, label
 
-def rescale_data(sig: np.ndarray, scaler: List[int, int]) -> np.ndarray:
+def rescale_data(sig: np.ndarray, scaler: List[int]) -> np.ndarray:
     """Rescale sample(s) with min max scaler provided in the
        form of List[min, max].
 
