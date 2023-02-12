@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "database-tools"
-version = "0.1.0"
+version = "1.0.0"
 description = "For compiling MIMIC-III waveform data into an ML ready database."
 authors = ["Cameron Johnson"]
 license = "MIT"
