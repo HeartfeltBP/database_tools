@@ -58,7 +58,10 @@ def generate_records(
         samples_per_file (int, optional): Max samples per tfrecords file. Defaults to 10000.
     """
     print('Determing split indices...')
-    idx = get_split_idx(n=ds.ppg.shape[0], split_strategy=split_strategy)
+    if split_strategy is None:
+        idx = dict(train=[], val=[], test=[i for i in range(0, ds.ppg.shape[0])])
+    else:
+        idx = get_split_idx(n=ds.ppg.shape[0], split_strategy=split_strategy)
 
     print('Scaling and splitting data...')
     data, scalers = scale_data(ds, idx)
