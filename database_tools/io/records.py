@@ -29,29 +29,30 @@ def generate_record_paths(name: str = None) -> str:
         yield path
 
 def get_header_record(path: str, record_type: str) -> Union[wfdb.Record, wfdb.MultiRecord]:
-    """Get layout or master header record from MIMIC-III Waveforms database.
+    """Get data header or layout header record from MIMIC-III Waveforms database.
 
     Args:
         path (str): Path to data file.
-        record_type (str): One of ['layout', 'master'].
+        record_type (str): One of ['layout', 'data'].
 
     Returns:
         rec (wfdb.io.record.Record): WFDB record object.
     """
     pn_dir = MIMIC_DIR + path
     if record_type == 'layout':
-        hea_name = path.split('/')[1] + '_layout'
-    elif record_type == 'master':
-        hea_name = path.split('/')[1]
+        hea_name = path.split('/')[-1] + '_layout'
+    elif record_type == 'data':
+        pn_dir = pn_dir.rsplit('/', 1)[0] if '_' in pn_dir else pn_dir  # remove file name from path if there
+        hea_name = path.split('/')[-1]
     else:
-        raise ValueError('record_type must be one of [\'layout\', \'master\']')
+        raise ValueError('record_type must be one of [\'layout\', \'data\']')
 
     try:
         lay = wfdb.rdheader(pn_dir=pn_dir, record_name=hea_name)
-        logger.info(f'Successfully got layout record {hea_name}')
+        logger.info(f'Successfully got {record_type} record {hea_name}')
         return lay
     except Exception as e:
-        logger.info(f'Failed to get layout record {path} due to {e}')
+        logger.info(f'Failed to get {record_type} record {path} due to {e}')
 
 def get_data_record(path: str) -> wfdb.Record:
     """Get data record from MIMIC-III Waveforms database.

@@ -13,9 +13,10 @@ def test_generate_record_paths(input, expected):
     result = [x for x in generate_record_paths(name=input)]
     assert isinstance(result, expected)
 
-@pytest.mark.parametrize('input,expected', [(('30/3000063', 'layout'), wfdb.Record),
-                                            (('30/3000303', 'layout'), NoneType),
-                                            (('30/3000063', 'master'), wfdb.MultiRecord)])
+@pytest.mark.parametrize('input,expected', [(('30/3000063',              'layout'), wfdb.Record),
+                                            (('30/3000303',              'layout'), NoneType),
+                                            (('30/3000063',              'data'),   wfdb.MultiRecord),
+                                            (('30/3000063/3000063_0016', 'data'),   wfdb.Record)])
 def test_get_layout_record(input, expected):
     result = get_header_record(path=input[0], record_type=input[1])
     assert isinstance(result, expected)

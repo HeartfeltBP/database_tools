@@ -11,7 +11,7 @@ def layout_has_signals(hea: wfdb.Record, signals: List[str]) -> bool:
     Returns:
         bool: True if the layout contains ALL signals provided.
     """
-    if (hea is None) | (hea.sig_name is None):
+    if hea is None:
         return False
     elif set(signals).difference(set(hea.sig_name)) == set():
         return True
