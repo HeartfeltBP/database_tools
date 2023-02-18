@@ -1,7 +1,7 @@
 import wfdb
 from typing import List
 
-def layout_has_signals(hea: wfdb.Record, signals: List[str]) -> bool:
+def header_has_signals(hea: wfdb.Record, signals: List[str]) -> bool:
     """Check if a patient layout contains specified signals.
 
     Args:
