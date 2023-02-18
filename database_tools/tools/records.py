@@ -64,19 +64,20 @@ def generate_records(
         scaler_path (path, optional): Path to an existing scaler. If not provided a scaler will be
             created based on given dataset.
     """
-    print('Determing split indices...')
+    print('Splitting data...')
     if split_strategy is None:
         idx = dict(train=[], val=[], test=[i for i in range(0, ds.ppg.shape[0])])
     else:
         idx = get_split_idx(n=ds.ppg.shape[0], split_strategy=split_strategy)
+    data_unscaled = split_data(ds, idx)
 
-    print('Scaling and splitting data...')
+    print('Scaling data...')
     if scaler_path is not None:
         with open(scaler_path, 'rb') as f:
             scaler = pkl.load(f)
     else:
         scaler = None
-    data, scaler_dict = scale_data(ds, idx, scaler)
+    data_scaled, scaler_dict = scale_data(data_unscaled, scaler)
 
     if scaler is not None:
         with open(f'{data_dir}min_max_scaler_{time_ns()}.pkl', 'wb') as f:
@@ -84,11 +85,11 @@ def generate_records(
 
     print('Generating TFRecords...')
     write_records(
-        data=data,
+        data=data_scaled,
         data_dir=data_dir,
         samples_per_file=samples_per_file,
     )
-    return (data, scaler_dict)
+    return (data_unscaled, data_scaled, scaler_dict)
 
 def get_split_idx(n: int, split_strategy: Tuple[float, float, float]) -> dict:
     idx = [i for i in range(0, n)]
@@ -105,25 +106,34 @@ def get_split_idx(n: int, split_strategy: Tuple[float, float, float]) -> dict:
     )
     return dict(train=idx_train, val=idx_val, test=idx_test)
 
-def scale_data(ds: Dataset, idx: dict, scaler: str) -> Tuple[dict, dict]:
-    data, scaler_dict = {}, {}
+def split_data(ds: Dataset, idx) -> dict:
+    data = {}
     for key in ['ppg', 'vpg', 'apg', 'abp']:
         tmp = ds.__getattribute__(key)
+        data[key] = dict(
+            train=tmp[idx['train']],
+            val=tmp[idx['val']],
+            test=tmp[idx['test']],
+        )
+    return data
+
+def scale_data(data_unscaled: dict, scaler: dict) -> Tuple[dict, dict]:
+    data_scaled = {'ppg': {}, 'vpg': {}, 'apg': {}, 'abp': {}}
+    scaler_dict = {}
+    for key in ['ppg', 'vpg', 'apg', 'abp']:
         if scaler is None:
-            min_ = np.min(tmp)
-            max_ = np.max(tmp)
+            min_ = np.min(data_unscaled[key]['train'])
+            max_ = np.max(data_unscaled[key]['train'])
         else:
             min_ = scaler[key][0]
             max_ = scaler[key][1]
-        tmp_scaled = np.divide(tmp - min_, max_ - min_)
-
         scaler_dict[key] = [min_, max_]
-        data[key] = dict(
-            train=tmp_scaled[idx['train']],
-            val=tmp_scaled[idx['val']],
-            test=tmp_scaled[idx['test']],
-        )
-    return (data, scaler_dict)
+
+        for split in ['train', 'val', 'test']:
+            tmp = data_unscaled[key][split]
+            tmp_scaled = np.divide(tmp - min_, max_ - min_)
+            data_scaled[key][split] = tmp_scaled
+    return (data_scaled, scaler_dict)
 
 def write_records(data: dict, data_dir: str, samples_per_file: int) -> None:
     records_dir = data_dir + 'records/'
