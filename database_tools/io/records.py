@@ -1,6 +1,10 @@
+import io
 import wfdb
 import logging
+import requests
 import numpy as np
+import pandas as pd
+from typing import Union
 
 logging.basicConfig(
      filename='io.log',
@@ -10,21 +14,42 @@ logging.basicConfig(
 logger = logging.getLogger('io')
 logger.setLevel(logging.INFO)
 
-def get_layout_record(path: str) -> wfdb.Record:
-    """Get layout record from MIMIC-III Waveforms database.
+MIMIC_DIR = 'mimic3wdb/1.0/'
+
+def generate_record_paths(name: str = None) -> str:
+    if name is None:
+        rec_dir = MIMIC_DIR + 'RECORDS'
+    elif name == 'adults':
+        rec_dir = MIMIC_DIR + 'RECORDS-adults'
+    elif name == 'neonates':
+        rec_dir = MIMIC_DIR + 'RECORDS-neonates'
+    r = requests.get('https://physionet.org/files/' + rec_dir, stream=True)
+    records = set(pd.read_csv(io.BytesIO(r.content), names=['records'])['records'])
+    for path in records:
+        yield path
+
+def get_header_record(path: str, record_type: str) -> Union[wfdb.Record, wfdb.MultiRecord]:
+    """Get layout or master header record from MIMIC-III Waveforms database.
 
     Args:
         path (str): Path to data file.
+        record_type (str): One of ['layout', 'master'].
 
     Returns:
         rec (wfdb.io.record.Record): WFDB record object.
     """
-    dir = 'mimic3wdb/1.0/' + path
-    hea_name = path.split('/')[1] + '_layout'
+    pn_dir = MIMIC_DIR + path
+    if record_type == 'layout':
+        hea_name = path.split('/')[1] + '_layout'
+    elif record_type == 'master':
+        hea_name = path.split('/')[1]
+    else:
+        raise ValueError('record_type must be one of [\'layout\', \'master\']')
+
     try:
-        hea = wfdb.rdheader(pn_dir=dir, record_name=hea_name)
+        lay = wfdb.rdheader(pn_dir=pn_dir, record_name=hea_name)
         logger.info(f'Successfully got layout record {hea_name}')
-        return hea
+        return lay
     except Exception as e:
         logger.info(f'Failed to get layout record {path} due to {e}')
 
@@ -37,10 +62,10 @@ def get_data_record(path: str) -> wfdb.Record:
     Returns:
         rec (wfdb.io.record.Record): WFDB record object.
     """
-    dir = 'mimic3wdb/1.0/' + '/'.join(path.split('/')[:-1])
+    pn_dir = MIMIC_DIR + '/'.join(path.split('/')[:-1])
     rcd_name = path.split('/')[-1]
     try:
-        rcd = wfdb.rdrecord(pn_dir=dir, record_name=rcd_name)
+        rcd = wfdb.rdrecord(pn_dir=pn_dir, record_name=rcd_name)
         logger.info(f'Successfully got data record {rcd_name}')
         return rcd
     except Exception as e:
@@ -67,4 +92,4 @@ def get_signal(rec: wfdb.Record, sig: str, errors: str = 'ignore') -> np.ndarray
         elif errors == 'raise':
             raise ValueError(f'Signal name \'{sig}\' is not in the provided record')
         else:
-            raise ValueError('errors must be one of \'ignore\', \'raise\'')
+            raise ValueError('errors must be one of [\'ignore\', \'raise\']')
