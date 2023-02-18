@@ -26,7 +26,7 @@ def generate_record_paths(name: str = None) -> str:
     r = requests.get('https://physionet.org/files/' + rec_dir, stream=True)
     records = set(pd.read_csv(io.BytesIO(r.content), names=['records'])['records'])
     for path in records:
-        yield path
+        yield path[:-1]  # remove trailing /
 
 def get_header_record(path: str, record_type: str) -> Union[wfdb.Record, wfdb.MultiRecord]:
     """Get data header or layout header record from MIMIC-III Waveforms database.
