@@ -79,7 +79,7 @@ def generate_records(
         scaler = None
     data_scaled, scaler_dict = scale_data(data_unscaled, scaler)
 
-    if scaler is not None:
+    if scaler_path is None:
         with open(f'{data_dir}min_max_scaler_{time_ns()}.pkl', 'wb') as f:
             pkl.dump(scaler_dict, f)
 
