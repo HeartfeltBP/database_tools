@@ -82,6 +82,8 @@ def generate_records(
     if scaler_path is None:
         with open(f'{data_dir}min_max_scaler_{time_ns()}.pkl', 'wb') as f:
             pkl.dump(scaler_dict, f)
+    with open(f'{data_dir}split_idx_{time_ns()}.pkl', 'wb') as f:
+        pkl.dump(idx, f)
 
     print('Generating TFRecords...')
     write_records(
