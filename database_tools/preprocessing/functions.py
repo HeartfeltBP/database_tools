@@ -161,17 +161,17 @@ def get_snr(x, low, high, df, fs):
             snr = -10
     return snr, f0
 
-def flat_lines(x):
+def flat_lines(x: np.ndarray, n: int) -> bool:
     """
     Flat line detection.
 
     Args:
         x (np.ndarray): Signal to process.
+        n (int): Maximum length of flat line.
 
     Returns:
         bool: True if n identical values exist consecutively in x.
     """
-    n = 4
     return any(sum(1 for _ in g) > (n - 1) for _, g in itertools.groupby(x))
 
 def beat_similarity(x, windowsize, ma_perc, fs):

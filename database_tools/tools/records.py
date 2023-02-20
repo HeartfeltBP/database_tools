@@ -46,33 +46,52 @@ class Dataset:
 def generate_records(
     ds: Dataset,
     data_dir: str,
-    split_strategy: Tuple[float, float, float],
+    split_strategy: Tuple[float, float, float] = None,
     samples_per_file: int = 10000,
+    scaler_path: str = None,
 ) -> Tuple[dict, dict]:
     """Generates TFRecords files from dataset.
 
     Args:
         ds (Dataset): Dataset object consisting of ppg and abp data from JSONLINES files.
                       Other data includes vpg, and apg data derived from ppg.
-        split_strategy (Tuple[float, float, float]): Train, val, test split percentages.
+
+        split_strategy (Tuple[float, float, float], optional): Train, val, test split percentages.
+            If not provided the entire dataset will be treated as test data.
+
         samples_per_file (int, optional): Max samples per tfrecords file. Defaults to 10000.
+
+        scaler_path (path, optional): Path to an existing scaler. If not provided a scaler will be
+            created based on given dataset.
     """
-    print('Determing split indices...')
-    idx = get_split_idx(n=ds.ppg.shape[0], split_strategy=split_strategy)
+    print('Splitting data...')
+    if split_strategy is None:
+        idx = dict(train=[], val=[], test=[i for i in range(0, ds.ppg.shape[0])])
+    else:
+        idx = get_split_idx(n=ds.ppg.shape[0], split_strategy=split_strategy)
+    data_unscaled = split_data(ds, idx)
 
-    print('Scaling and splitting data...')
-    data, scalers = scale_data(ds, idx)
+    print('Scaling data...')
+    if scaler_path is not None:
+        with open(scaler_path, 'rb') as f:
+            scaler = pkl.load(f)
+    else:
+        scaler = None
+    data_scaled, scaler_dict = scale_data(data_unscaled, scaler)
 
-    with open(f'{data_dir}min_max_scaler_{time_ns()}.pkl', 'wb') as f:
-        pkl.dump(scalers, f)
+    if scaler_path is None:
+        with open(f'{data_dir}min_max_scaler_{time_ns()}.pkl', 'wb') as f:
+            pkl.dump(scaler_dict, f)
+    with open(f'{data_dir}split_idx_{time_ns()}.pkl', 'wb') as f:
+        pkl.dump(idx, f)
 
     print('Generating TFRecords...')
     write_records(
-        data=data,
+        data=data_scaled,
         data_dir=data_dir,
         samples_per_file=samples_per_file,
     )
-    return (data, scalers)
+    return (data_unscaled, data_scaled, scaler_dict)
 
 def get_split_idx(n: int, split_strategy: Tuple[float, float, float]) -> dict:
     idx = [i for i in range(0, n)]
@@ -89,22 +108,34 @@ def get_split_idx(n: int, split_strategy: Tuple[float, float, float]) -> dict:
     )
     return dict(train=idx_train, val=idx_val, test=idx_test)
 
-def scale_data(ds: Dataset, idx: dict) -> Tuple[dict, dict]:
-    data, scalers = {}, {}
+def split_data(ds: Dataset, idx) -> dict:
+    data = {}
     for key in ['ppg', 'vpg', 'apg', 'abp']:
         tmp = ds.__getattribute__(key)
-        min_ = np.min(tmp)
-        max_ = np.max(tmp)
-
-        tmp_scaled = np.divide(tmp - min_, max_ - min_)
-
-        scalers[key] = [min_, max_]
         data[key] = dict(
-            train=tmp_scaled[idx['train']],
-            val=tmp_scaled[idx['val']],
-            test=tmp_scaled[idx['test']],
+            train=tmp[idx['train']],
+            val=tmp[idx['val']],
+            test=tmp[idx['test']],
         )
-    return (data, scalers)
+    return data
+
+def scale_data(data_unscaled: dict, scaler: dict) -> Tuple[dict, dict]:
+    data_scaled = {'ppg': {}, 'vpg': {}, 'apg': {}, 'abp': {}}
+    scaler_dict = {}
+    for key in ['ppg', 'vpg', 'apg', 'abp']:
+        if scaler is None:
+            min_ = np.min(data_unscaled[key]['train'])
+            max_ = np.max(data_unscaled[key]['train'])
+        else:
+            min_ = scaler[key][0]
+            max_ = scaler[key][1]
+        scaler_dict[key] = [min_, max_]
+
+        for split in ['train', 'val', 'test']:
+            tmp = data_unscaled[key][split]
+            tmp_scaled = np.divide(tmp - min_, max_ - min_)
+            data_scaled[key][split] = tmp_scaled
+    return (data_scaled, scaler_dict)
 
 def write_records(data: dict, data_dir: str, samples_per_file: int) -> None:
     records_dir = data_dir + 'records/'
