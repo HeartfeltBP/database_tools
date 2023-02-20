@@ -27,7 +27,7 @@ class Window:
 
     @property
     def _flat_check(self) -> bool:
-        return not flat_lines(self.sig)
+        return not flat_lines(self.sig, m=self.cm.flat_line_length)
 
     @property
     def _beat_check(self) -> bool:
@@ -67,8 +67,8 @@ class MetricLogger:
         sbp=[],
         ppg_beat_sim=[],
         abp_beat_sim=[],
-        # flat_ppg=[],
-        # flat_abp=[],
+        flat_ppg=[],
+        flat_abp=[],
     )
     valid_samples: int = 0
     rejected_samples: int = 0
@@ -98,11 +98,8 @@ class MetricLogger:
         self.stats['sbp'].append(abp.sbp)
         self.stats['ppg_beat_sim'].append(ppg.beat_sim)
         self.stats['abp_beat_sim'].append(abp.beat_sim)
-        # self.stats['flat_ppg'].append(ppg._flat_check)
-        # self.stats['flat_abp'].append(abp._flat_check)
-        # logging.info(f'Rejected samples: {self.rejected_samples} --- Samples collected: {self.valid_samples}')
-        # if self.rejected_samples % 1000 == 0:
-        #     print(f'Rejected samples: {self.rejected_samples} --- Samples collected: {self.valid_samples}')
+        self.stats['flat_ppg'].append(ppg._flat_check)
+        self.stats['flat_abp'].append(abp._flat_check)
 
     def save_stats(self, path):
         df = pd.DataFrame(self.stats)
@@ -125,6 +122,6 @@ def congruency_check(ppg: Window, abp: Window, cm: ConfigMapper) -> Tuple[float,
     abp_f = np.abs(np.fft.fft(bandpass(abp.sig, low=cm.freq_band[0], high=cm.freq_band[1], fs=cm.fs)))
     spec_sim = get_similarity(ppg_f, abp_f)
     sim_check = (time_sim > cm.sim) & (spec_sim > cm.sim)
-    hr_delta_check = np.abs(ppg.f0 - abp.f0) > cm.hr_delta
+    hr_delta_check = np.abs(ppg.f0 - abp.f0) < cm.hr_delta
     congruency_check = sim_check & hr_delta_check
     return (time_sim, spec_sim, congruency_check)
