@@ -59,8 +59,10 @@ class BuildDatabase():
                 p_win = Window(p, cm, cm.checks)
                 p_valid = p_win.valid
 
+                bp_checks = cm.checks + ['bp']
+                bp_checks.remove('amp')
                 # Evaluate abp
-                a_win = Window(a, cm, cm.checks + ['bp'])
+                a_win = Window(a, cm, bp_checks)
                 a_valid = a_win.valid
 
                 # Evaluate ppg vs abp

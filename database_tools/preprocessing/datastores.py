@@ -42,6 +42,10 @@ class Window:
         return self.beat_sim > self.cm.beat_sim
 
     @property
+    def _amp_check(self) -> bool:
+        return np.max(self.sig) > self.cm.ppg_amp
+
+    @property
     def _bp_check(self) -> bool:
         self.dbp, self.sbp = np.min(self.sig), np.max(self.sig)
         dbp_check = (self.dbp > self.cm.dbp_bounds[0]) & (self.dbp < self.cm.dbp_bounds[1])

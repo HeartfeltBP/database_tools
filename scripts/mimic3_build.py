@@ -4,7 +4,7 @@ from database_tools.preprocessing.utils import ConfigMapper
 data_dir = '/home/cam/Documents/database_tools/data/mimic3-data-20230220/'
 
 config = dict(
-    checks=['snr', 'hr', 'beat', 'flat'],
+    checks=['snr', 'hr', 'beat', 'amp', 'flat'],
     fs=125,                                 # sampling frequency
     win_len=256,                            # window length
     freq_band=[0.5, 8.0],                   # bandpass frequencies
@@ -15,6 +15,7 @@ config = dict(
     dbp_bounds=[20, 130],                   # upper and lower threshold for DBP
     sbp_bounds=[50, 225],                   # upper and lower threshold for SBP
     flat_line_length=10,                    # max length of flat lines
+    ppg_amp=0.7,                            # minimum amplitude of ppg wave
     windowsize=1,                           # windowsize for rolling mean
     ma_perc=20,                             # multiplier for peak detection
     beat_sim=0.2,                           # lower threshold for beat similarity
