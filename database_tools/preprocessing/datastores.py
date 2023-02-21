@@ -16,6 +16,8 @@ class Window:
     cm: ConfigMapper
     checks: List[str]
 
+    # TODO: Add amplitude check (similar to bp check) for ppg
+
     @property
     def _snr_check(self) -> bool:
         self.snr, self.f0 = get_snr(self.sig, low=self.cm.freq_band[0], high=self.cm.freq_band[1], df=0.2, fs=self.cm.fs)
@@ -27,7 +29,7 @@ class Window:
 
     @property
     def _flat_check(self) -> bool:
-        return not flat_lines(self.sig, m=self.cm.flat_line_length)
+        return not flat_lines(self.sig, n=self.cm.flat_line_length)
 
     @property
     def _beat_check(self) -> bool:

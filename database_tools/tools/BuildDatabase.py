@@ -4,7 +4,7 @@ import random
 import numpy as np
 import pandas as pd
 import vitaldb
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 from wfdb import rdrecord
 from database_tools.preprocessing.utils import ConfigMapper, download, window
 from database_tools.preprocessing.functions import bandpass, align_signals
