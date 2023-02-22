@@ -23,6 +23,7 @@ wfdb = "^4.0.0"
 tensorflow = "==2.9.2"
 vitaldb = "^1.2.10"
 pytest = "^7.2.1"
+alive-progress = "^3.0.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"

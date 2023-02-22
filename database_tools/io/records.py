@@ -4,7 +4,7 @@ import logging
 import requests
 import numpy as np
 import pandas as pd
-from typing import Union
+from typing import Union, List
 
 logging.basicConfig(
      filename='io.log',
@@ -48,11 +48,28 @@ def get_header_record(path: str, record_type: str) -> Union[wfdb.Record, wfdb.Mu
         raise ValueError('record_type must be one of [\'layout\', \'data\']')
 
     try:
-        lay = wfdb.rdheader(pn_dir=pn_dir, record_name=hea_name)
+        hea = wfdb.rdheader(pn_dir=pn_dir, record_name=hea_name)
         logger.info(f'Successfully got {record_type} record {hea_name}')
-        return lay
+        return hea
     except Exception as e:
         logger.info(f'Failed to get {record_type} record {path} due to {e}')
+
+def header_has_signals(hea: wfdb.Record, signals: List[str]) -> bool:
+    """Check if a header record contains specified signals.
+
+    Args:
+        hea (wfdb.Record): Header file as wfdb.Record object.
+        signals (List[str]): List of signals.
+
+    Returns:
+        bool: True if the record contains ALL signals provided.
+    """
+    if set(signals).difference(set(hea.sig_name)) == set():
+        logger.info(f'Record {hea.record_name}.hea contains {signals}')
+        return True
+    else:
+        logger.info(f'Record {hea.record_name}.hea does not contain {signals}')
+        return False
 
 def get_data_record(path: str) -> wfdb.Record:
     """Get data record from MIMIC-III Waveforms database.
@@ -86,11 +103,12 @@ def get_signal(rec: wfdb.Record, sig: str, errors: str = 'ignore') -> np.ndarray
     try:
         s = rec.sig_name  # list of signals in record
         data = rec.p_signal[:, s.index(sig)].astype(np.float64)
+        logger.info(f'Successfully extracted {sig} from {rec.record_name}')
         return data
     except Exception as e:
         if errors == 'ignore':
-            logger.info(f'Failed to extraction signal due to {e}')
+            logger.info(f'Failed to extract {sig} from {rec.record_name} due to {e}')
         elif errors == 'raise':
-            raise ValueError(f'Signal name \'{sig}\' is not in the provided record')
+            raise ValueError(f'Signal name {sig} is not in the provided record')
         else:
             raise ValueError('errors must be one of [\'ignore\', \'raise\']')
