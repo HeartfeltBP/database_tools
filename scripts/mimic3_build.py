@@ -1,7 +1,7 @@
 from database_tools.tools import BuildDatabase
 from database_tools.preprocessing.utils import ConfigMapper
 
-data_dir = '/home/cam/Documents/database_tools/data/mimic3-data-20230220/'
+data_dir = '/workspaces/github/database_tools/data/mimic3-data-20230222/'
 
 config = dict(
     checks=['snr', 'hr', 'beat', 'amp', 'flat'],
