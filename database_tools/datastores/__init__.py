@@ -1,2 +1,2 @@
-from .SignalRecord import SignalRecord
+from .SignalStore import SignalStore
 from .WaveformRecord import WaveformRecord

@@ -1,17 +1,26 @@
 import wfdb
 from dataclasses import dataclass, InitVar, field
-from database_tools.datastores import SignalRecord
-from database_tools.errors import RecordFormatError
+from database_tools.datastores import SignalStore
+
 
 @dataclass
 class WaveformRecord:
+    """Interface for wfdb waveforms records.
+       Makes it easier to peak at data and build signal
+       processing pipelines.
+
+    Attributes
+    ----------
+    name (str): Record name.
+    fs (int): Sampling rate of wfdb.Record.
+    """
 
     rcd: InitVar[wfdb.Record]
     name: str = field(init=False)
-    signals: SignalRecord = field(init=False)
+    fs: int = field(init=False)
 
     def __post_init__(self, rcd: wfdb.Record):
-        self.__setattr__(object, 'name', rcd.record_name)
-        signals = {sig: rcd.p_signal[:, i] for i, sig in enumerate(rcd.p_signal)}
-        self.__setattr__(object, 'signals', signals)
-        self.__setattr__(object, 'fs', rcd.fs)
+        setattr(self, 'name', rcd.record_name)
+        setattr(self, 'fs', rcd.fs)
+        for i, (sig, fmt) in enumerate(zip(rcd.sig_name, rcd.fmt)):
+            setattr(self, sig, SignalStore(rcd.p_signal[:, i], fmt)) 
