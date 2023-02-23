@@ -6,6 +6,7 @@ import requests
 import numpy as np
 import pandas as pd
 from typing import Union, List
+from alive_progress import alive_bar
 
 logging.basicConfig(
      filename='io.log',
@@ -75,23 +76,30 @@ def header_has_signals(hea: wfdb.Record, signals: List[str]) -> bool:
         logger.info(f'Record {hea.record_name}.hea does not contain {signals}')
         return False
 
-def get_data_record(path: str) -> wfdb.Record:
+def get_data_record(path: str, record_type: str = 'waveforms') -> wfdb.Record:
     """Get data record from MIMIC-III Waveforms database.
 
     Args:
         path (str): Path to data file.
+        record_type (str): One of ['waveforms', 'numerics']. Defaults to 'numerics'.
 
     Returns:
         rec (wfdb.io.record.Record): WFDB record object.
     """
-    pn_dir = MIMIC_DIR + '/'.join(path.split('/')[:-1])
-    rcd_name = path.split('/')[-1]
+    if record_type == 'waveforms':
+        pn_dir = MIMIC_DIR + '/'.join(path.split('/')[:-1])
+        rcd_name = path.split('/')[-1]
+    elif record_type == 'numerics':
+        pn_dir = MIMIC_DIR + path
+        rcd_name = path.split('/')[-1] + 'n'
+    else:
+        raise ValueError('record_type must be one of [\'waveforms\', \'numerics\']')
     try:
         rcd = wfdb.rdrecord(pn_dir=pn_dir, record_name=rcd_name)
-        logger.info(f'Successfully got data record {rcd_name}')
+        logger.info(f'Successfully got {record_type} record {rcd_name}')
         return rcd
     except Exception as e:
-        logger.info(f'Failed to get data record {path} due to {e}')
+        logger.info(f'Failed to get {record_type} record {path} due to {e}')
 
 def get_signal(rec: wfdb.Record, sig: str, errors: str = 'ignore') -> np.ndarray:
     """Extract signal data from a record.
@@ -102,7 +110,7 @@ def get_signal(rec: wfdb.Record, sig: str, errors: str = 'ignore') -> np.ndarray
         errors (str, optional): One of ['raise', 'ignore'].
 
     Returns:
-        data (np.ndarray): 1D signal data.
+        data (np.ndarray): 1D signal data or NoneType if errors is 'ignore'.
     """
     try:
         s = rec.sig_name  # list of signals in record
@@ -116,3 +124,49 @@ def get_signal(rec: wfdb.Record, sig: str, errors: str = 'ignore') -> np.ndarray
             raise ValueError(f'Signal name {sig} is not in the provided record')
         else:
             raise ValueError('errors must be one of [\'ignore\', \'raise\']')
+
+def locate_valid_records(signals: List[str], min_length: int, n_segments: int, shuffle: bool = True) -> List[str]:
+    """Locate valid data records. Exclusion is performed based on a list of signals
+    the records must contain and a minimum length of the signals.
+
+    Args:
+        signals (List[str]): One or more of ['PLETH', 'ABP', ...]  TODO: add other signals
+        min_length (int): Minimum length of data records to be considered valid.
+        n_records (int): Maximum number of records to find.
+        shuffle (bool): If True records list is shuffled.
+
+    Returns:
+        valid_segs (List[str]): _description_
+    """
+    valid_segs = []
+    with alive_bar(total=n_segments, bar='brackets', force_tty=True) as bar:
+        for path in generate_record_paths(name='adults', shuffle=shuffle):
+
+            # get patient layout header
+            layout = get_header_record(path=path, record_type='layout')
+            if layout is None: continue  # fx returns None if file DNE
+
+            # check if header has provided signals
+            if not header_has_signals(layout, signals): continue
+
+            # get patient master header
+            master = get_header_record(path=path, record_type='data')
+            if master is None: continue
+
+            # zip segment names and lengths
+            for seg_name, n_samples in zip(master.seg_name, master.seg_len):
+            
+                # check segment length
+                if (n_samples > min_length) & (seg_name != '~'):  # '~' indicates data is missing
+                    seg_path = path + '/' + seg_name
+
+                    # Get segment header
+                    hea = get_header_record(path=seg_path, record_type='data')
+                    if hea is None: continue
+
+                    # Check if segment has provided signals and append
+                    if header_has_signals(hea, signals):
+                        valid_segs.append(seg_path)
+                        if len(valid_segs) > n_segments:
+                            return valid_segs
+                        bar()  # iterate loading bar

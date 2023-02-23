@@ -29,16 +29,17 @@ def test_header_has_signals(input, expected):
     result = header_has_signals(hea, signals=input[2])
     assert result == expected
 
-@pytest.mark.parametrize('input,expected', [('30/3000063/3000063_0016', wfdb.Record),
-                                            ('30/3000003/3000063_0016', NoneType)])
+@pytest.mark.parametrize('input,expected', [(['30/3000063/3000063_0016', 'waveforms'], wfdb.Record),
+                                            (['30/3000003/3000063_0016', 'waveforms'], NoneType),
+                                            (['30/3000063',              'numerics'],  wfdb.Record)])
 def test_get_data_record(input, expected):
-    result = get_data_record(path=input)
+    result = get_data_record(path=input[0], record_type=input[1])
     assert isinstance(result, expected)
 
 @pytest.mark.parametrize('input,expected,exception', [(('30/3000063/3000063_0016', 'PLETH'), np.ndarray, None),
                                                       (('30/3000003/3000063_0016', 'FAIL'),  None,       ValueError)])
 def test_get_signal(input, expected, exception):
-    rcd = get_data_record(path=input[0])
+    rcd = get_data_record(path=input[0], record_type='waveforms')
     if expected is not None:
         assert isinstance(get_signal(rec=rcd, sig=input[1], errors='ignore'), np.ndarray)
     else:
