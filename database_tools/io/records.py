@@ -1,5 +1,6 @@
 import io
 import wfdb
+import random
 import logging
 import requests
 import numpy as np
@@ -16,7 +17,7 @@ logger.setLevel(logging.INFO)
 
 MIMIC_DIR = 'mimic3wdb/1.0/'
 
-def generate_record_paths(name: str = None) -> str:
+def generate_record_paths(name: str = None, shuffle: bool = True) -> str:
     if name is None:
         rec_dir = MIMIC_DIR + 'RECORDS'
     elif name == 'adults':
@@ -24,7 +25,10 @@ def generate_record_paths(name: str = None) -> str:
     elif name == 'neonates':
         rec_dir = MIMIC_DIR + 'RECORDS-neonates'
     r = requests.get('https://physionet.org/files/' + rec_dir, stream=True)
-    records = set(pd.read_csv(io.BytesIO(r.content), names=['records'])['records'])
+    records = list(pd.read_csv(io.BytesIO(r.content), names=['records'])['records'])
+    if shuffle:
+        random.shuffle(records)
+    logger.info(f'Successfuly got records file from {rec_dir}')
     for path in records:
         yield path[:-1]  # remove trailing /
 
