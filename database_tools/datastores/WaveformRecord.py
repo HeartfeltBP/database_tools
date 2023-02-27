@@ -1,6 +1,6 @@
 import wfdb
 from dataclasses import dataclass, InitVar, field
-from database_tools.datastores import SignalStore
+from database_tools.datastores import SignalStore, SignalGroup
 
 
 @dataclass
@@ -22,5 +22,6 @@ class WaveformRecord:
     def __post_init__(self, rcd: wfdb.Record):
         setattr(self, 'name', rcd.record_name)
         setattr(self, 'fs', rcd.fs)
-        for i, (sig, fmt) in enumerate(zip(rcd.sig_name, rcd.fmt)):
-            setattr(self, sig, SignalStore(rcd.p_signal[:, i], fmt)) 
+        signals = {sig: SignalStore(rcd.p_signal[:, i], rcd.fmt[i]) for i, sig in enumerate(rcd.sig_name)}
+        group = SignalGroup(signals)
+        setattr(self, 'sigs', group) 

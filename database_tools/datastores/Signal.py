@@ -1,6 +1,12 @@
 import numpy as np
 import plotly.graph_objects as go
-from dataclasses import dataclass
+from dataclasses import dataclass, InitVar, field
+
+SIG_MAP = {
+    'PLETH': 'ppg',
+    'ABP': 'abp',
+    'II': 'ecg_ii',
+}
 
 
 @dataclass
@@ -9,13 +15,6 @@ class SignalStore:
 
     data: np.ndarray
     fmt: str
-
-    def __call__(self):
-        """
-        Returns:
-            np.ndarray: Signal data.
-        """
-        return self.data
 
     @property
     def shape(self):
@@ -58,3 +57,27 @@ class SignalStore:
             fig.show()
         else:
             return fig
+
+@dataclass
+class SignalGroup:
+
+    signals: InitVar[dict]
+    ppg: SignalStore = field(init=False)
+    abp: SignalStore = field(init=False)
+    ecg_ii: SignalStore = field(init=False)
+    _names: list = field(init=False)
+
+    def __post_init__(self, signals):
+        names = []
+        for sig, store in signals.items():
+            setattr(self, SIG_MAP[sig], store)
+            names.append(SIG_MAP[sig])
+        setattr(self, '_names', names)
+
+    def info(self):
+        out = ''
+        for sig in self._names:
+            store = getattr(self, sig)
+            out += f'{sig: <7}- '
+            out += f'Format {store.fmt}, Length of {store.shape[0]} samples\n'
+        print(out)
