@@ -1,3 +1,4 @@
+import os
 import io
 import wfdb
 import random
@@ -8,8 +9,9 @@ import pandas as pd
 from typing import Union, List
 from alive_progress import alive_bar
 
+log_dir = '/'.join(os.getcwd().split('/')[0:5]) + '/logs/'
 logging.basicConfig(
-     filename='io.log',
+     filename=f'{log_dir}io.log',
      format= '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
      datefmt='%H:%M:%S'
 )
