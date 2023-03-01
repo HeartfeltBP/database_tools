@@ -16,14 +16,6 @@ class SignalStore:
     data: np.ndarray
     fmt: str
 
-    @property
-    def shape(self):
-        """
-        Returns:
-            Tuple: np.ndarray.shape
-        """
-        return self.data.shape
-
     def replace_nan(self, value: float = 1.0):
         """Replace NaN values in the signal.
 
@@ -60,6 +52,9 @@ class SignalStore:
 
 @dataclass
 class SignalGroup:
+    """Object to store a group of SignalStore objects.
+       Currently support ppg, abp, and ecg_ii waveforms.
+    """
 
     signals: InitVar[dict]
     ppg: SignalStore = field(init=False)
@@ -75,9 +70,10 @@ class SignalGroup:
         setattr(self, '_names', names)
 
     def info(self):
+        """Print signal names, formats and lengths."""
         out = ''
         for sig in self._names:
             store = getattr(self, sig)
-            out += f'{sig: <7}- '
-            out += f'Format {store.fmt}, Length of {store.shape[0]} samples\n'
+            out += f'{sig: <7}: '
+            out += f'Format {store.fmt}, Length of {store.data.shape[0]} samples\n'
         print(out)

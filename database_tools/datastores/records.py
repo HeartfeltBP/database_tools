@@ -24,10 +24,11 @@ class WaveformRecord:
         setattr(self, 'fs', rcd.fs)
         signals = {sig: SignalStore(rcd.p_signal[:, i], rcd.fmt[i]) for i, sig in enumerate(rcd.sig_name)}
         group = SignalGroup(signals)
-        setattr(self, 'sigs', group) 
+        setattr(self, 'sigs', group)
 
 
 @dataclass
 class NumericsRecord:
     def __post_init__(self):
+        #TODO:
         pass
