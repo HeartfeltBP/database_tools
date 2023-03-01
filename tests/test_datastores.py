@@ -1,7 +1,8 @@
 import plotly
 import numpy as np
-from database_tools.io.records import get_data_record
-from database_tools.datastores import SignalStore, SignalGroup, WaveformRecord, NumericsRecord
+from database_tools.io.wfdb import get_data_record
+from database_tools.datastores.signals import SignalStore, SignalGroup
+from database_tools.datastores.records import WaveformRecord, NumericsRecord
 
 def test_SignalStore():
     rcd = get_data_record('30/3000063/3000063_0016', 'waveforms')

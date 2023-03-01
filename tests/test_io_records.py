@@ -1,7 +1,7 @@
 import wfdb
 import pytest
 import numpy as np
-from database_tools.io.records import generate_record_paths, get_data_record, get_header_record, header_has_signals, get_signal
+from database_tools.io.wfdb import generate_record_paths, get_data_record, get_header_record, header_has_signals, get_signal
 
 NoneType = type(None)
 
