@@ -1,6 +1,7 @@
 import os
 import typing
 import numpy as np
+from scipy import signal
 from datetime import datetime
 from dataclasses import dataclass, InitVar
 
@@ -95,3 +96,21 @@ def make_equal_len(x: np.ndarray, y: np.ndarray) -> typing.Tuple[np.ndarray]:
     else:
         x = np.pad(x, pad_width=[0, len_y - len_x])
     return (x, y)
+
+def resample_signal(sig: list, fs_old: int, fs_new: int) -> typing.Tuple[list, int]:
+    """Resample a signal to a new sampling rate. This is done with the context
+       of a reference length of time in order to produce a result that is
+       evenly divisible by the window length (at the new sampling rate).
+
+    Args:
+        sig (list): Data.
+        fs_old (int): Old sampling rate.
+        fs_new (int): New sampling rate.
+
+    Returns:
+        resamp (list): Resampled signal.
+    """
+    frame_len = len(sig)
+    frame_time = frame_len / fs_old
+    resamp = signal.resample(sig, int(round(frame_time * fs_new, -1)))
+    return resamp

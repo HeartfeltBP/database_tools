@@ -33,8 +33,6 @@ class Window:
     def _beat_check(self) -> bool:
         self.beat_sim = beat_similarity(
             self.sig,
-            windowsize=self.cm.windowsize,
-            ma_perc=self.cm.ma_perc,
             fs=self.cm.fs,
         )
         return self.beat_sim > self.cm.beat_sim
