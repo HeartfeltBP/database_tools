@@ -7,8 +7,8 @@ import vitaldb
 from tqdm.notebook import tqdm
 from wfdb import rdrecord
 from database_tools.filtering.utils import ConfigMapper, download, window
-from database_tools.filtering.functions import bandpass, align_signals, congruency_check
-from database_tools.datastores import signals
+from database_tools.filtering.functions import bandpass, align_signals
+from database_tools.datastores import signals, metrics
 
 
 class BuildDatabase():
@@ -25,7 +25,7 @@ class BuildDatabase():
         self._max_samples = max_samples
 
     def run(self, cm: ConfigMapper):
-        logger = signals.MetricLogger()
+        logger = metrics.MetricLogger()
 
         print('Gettings valid segments...')
         patient_ids, files = self._get_valid_segs(self._data_dir + 'valid_segs.csv')
@@ -66,7 +66,7 @@ class BuildDatabase():
                 a_valid = a_win.valid
 
                 # Evaluate ppg vs abp
-                time_sim, spec_sim, cong_check = congruency_check(p_win, a_win, cm)
+                time_sim, spec_sim, cong_check = signals.congruency_check(p_win, a_win, cm)
                 is_valid = p_valid & a_valid & cong_check
 
                 logger.update_stats(mrn, is_valid, time_sim, spec_sim, p_win, a_win)  # update logger

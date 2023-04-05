@@ -1,9 +1,9 @@
 import numpy as np
-from typing import List
+from typing import List, Tuple
 import plotly.graph_objects as go
 from dataclasses import dataclass, InitVar, field
 from database_tools.filtering.utils import ConfigMapper, repair_peaks_troughs_idx
-from database_tools.filtering.functions import get_snr, flat_lines, beat_similarity, find_peaks, detect_notches
+from database_tools.filtering.functions import get_snr, flat_lines, beat_similarity, find_peaks, detect_notches, get_similarity, bandpass
 
 SIG_MAP = {
     'PLETH': 'ppg',
@@ -139,3 +139,23 @@ class Window:
         peaks, troughs = repair_peaks_troughs_idx(peaks, troughs)
         self.peaks = peaks - pad_width - 1
         self.troughs = troughs - pad_width - 1
+
+def congruency_check(ppg: Window, abp: Window, cm: ConfigMapper) -> Tuple[float, float, bool]:
+    """Performs checks between ppg and abp windows.
+
+    Args:
+        ppg (Window): Object with ppg data.
+        abp (Window): Object with abp data.
+        cm (ConfigMapper): Config mapping dataclass.
+
+    Returns:
+        bool: True if valid, False if not.
+    """
+    time_sim = get_similarity(ppg.sig, abp.sig)
+    ppg_f = np.abs(np.fft.fft(ppg.sig))
+    abp_f = np.abs(np.fft.fft(bandpass(abp.sig, low=cm.freq_band[0], high=cm.freq_band[1], fs=cm.fs)))
+    spec_sim = get_similarity(ppg_f, abp_f)
+    sim_check = (time_sim > cm.sim) & (spec_sim > cm.sim)
+    hr_delta_check = np.abs(ppg.f0 - abp.f0) < cm.hr_delta
+    congruency_check = sim_check & hr_delta_check
+    return (time_sim, spec_sim, congruency_check)
