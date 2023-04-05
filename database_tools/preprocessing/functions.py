@@ -1,9 +1,7 @@
 import itertools
 import numpy as np
 from scipy import signal, integrate
-from heartpy.peakdetection import detect_peaks
-from heartpy.datautils import rolling_mean
-from database_tools.preprocessing.utils import make_equal_len
+from database_tools.preprocessing.utils import make_equal_len, repair_peaks_troughs_idx
 from neurokit2.ppg.ppg_findpeaks import _ppg_findpeaks_bishop
 
 def bandpass(x, low, high, fs, method='cheby2'):
@@ -186,7 +184,7 @@ def flat_lines(x: np.ndarray, n: int) -> bool:
     """
     return any(sum(1 for _ in g) > (n - 1) for _, g in itertools.groupby(x))
 
-def beat_similarity(x, fs, return_beats=False):
+def beat_similarity(x, troughs, fs, return_beats=False):
     """Calculates beat similarity by segmenting beats at valleys and
        calculating the Pearson correlation coefficient. The final value
        output is the mean of the correlation coefficients calculated from
@@ -197,23 +195,18 @@ def beat_similarity(x, fs, return_beats=False):
 
     Args:
         x (np.ndarray): Cardiac signal.
+        troughs (list): Trough indices.
         fs (int): Sampling rate of cardiac signal.
 
     Returns:
         s (float): Mean of beat correlation coeffients.
     """
-    pad_width = 40
-    x_pad = np.pad(x, pad_width=pad_width, constant_values=np.mean(x))
-    
-    _, peaks = find_peaks(x_pad).values()
-    peaks = np.array(peaks) - pad_width - 1
-
     # check there are at least 2 peaks
-    if (len(peaks) < 2):
+    if (len(troughs) < 2):
         return -1
 
     neg_len = lambda x : len(x) * -1
-    beats = sorted(np.split(x, peaks), key=neg_len)
+    beats = sorted(np.split(x, troughs), key=neg_len)
 
     aligned_beats = [beats[0]]
 
@@ -236,3 +229,43 @@ def beat_similarity(x, fs, return_beats=False):
         return s / len(aligned_beats)
     except ZeroDivisionError:
         return -2
+
+def detect_notches(sig, peaks, troughs, dx=10):
+    """Detect dichrotic notch by find the maximum velocity
+       at least 10 samples after peak and 30 samples before
+       the subsequent trough.
+    
+
+    Args:
+        sig (np.ndarray): Cardiac signal.
+        peaks (list): List of signal peak indices.
+        troughs (list): List of signal trough indices.
+        dx (int, optional): Spacing between sig values (for np.gradient). Defaults to 10.
+
+    Returns:
+        notches (list): List of dichrotic notch indices.
+    """
+    peaks, troughs = repair_peaks_troughs_idx(peaks, troughs)
+
+    # always start with first peak
+    if peaks[0] > troughs[0]:
+        troughs = troughs[1::]
+
+    notches = []
+    for i, j in zip(peaks, troughs):
+        try:
+            vel = np.gradient(sig[i:j], dx)
+        except ValueError:  # gradient fails if slice of sig is too small
+            continue
+        n = np.argmax(vel[10:-30])
+        notches.append(n + i)  # add first index of slice to get correct notch index
+
+    # look for a notch after the last peak if the highest index is a peak.
+    if peaks[-1] > troughs[-1]:
+        vel = np.gradient(sig[peaks[-1]::], dx)
+        n = np.argmax(vel[10:-30])
+        notches.append(n + peaks[-1])
+
+    # remove notches that are just peaks
+    notches = np.array(notches)[~np.isin(notches, peaks)]
+    return list(notches)

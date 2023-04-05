@@ -114,3 +114,54 @@ def resample_signal(sig: list, fs_old: int, fs_new: int) -> typing.Tuple[list, i
     frame_time = frame_len / fs_old
     resamp = signal.resample(sig, int(round(frame_time * fs_new, -1)))
     return resamp
+
+def repair_peaks_troughs_idx(peaks: list, troughs: list) -> typing.Tuple[list, list]:
+    """Takes a list of peaks and troughs and removes
+       out of order elements. Regardless of which occurs first,
+       a peak or a trough, a peak must be followed by a trough
+       and vice versa.
+
+    Args:
+        peaks (list): Signal peaks.
+        troughs (list): Signal troughs.
+
+    Returns:
+        first_repaired (list): Input with out of order items removed.
+        second_repaired (list): Input with out of order items removed.
+
+        Items are always returned with peaks idx as first tuple item.
+    """
+    # Configure algorithm to start with lowest index.
+    if peaks[0] < troughs[0]:
+        first = peaks
+        second = troughs
+    else:
+        second = peaks
+        first = troughs
+
+    first_repaired, second_repaired = [], []  # lists to store outputs
+    i_first, i_second = 0, 0  # declare starting indices
+    for _ in enumerate(first):
+        try:
+            poi_1 = first[i_first]
+            poi_2 = second[i_second]
+            if poi_1 < poi_2:  # first point of interest is before second
+                poi_3 = first[i_first + 1]
+                if poi_2 < poi_3:  # second point of interest is before third
+                    first_repaired.append(poi_1)
+                    second_repaired.append(poi_2)
+                    i_first += 1
+                    i_second += 1
+                else:  # first without iterating second
+                    i_first += 1
+            else: # inverse of other else condition
+                i_second += 1
+        except IndexError: # catch index error (always thrown in last iteration)
+            first_repaired.append(poi_1)
+            second_repaired.append(poi_2)
+
+    # place indices in the correct order
+    if peaks[0] < troughs[0]:
+        return (first_repaired, second_repaired)
+    else:
+        return (second_repaired, first_repaired)

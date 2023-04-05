@@ -4,7 +4,7 @@ import pandas as pd
 from typing import List, Tuple
 from dataclasses import dataclass
 from database_tools.preprocessing.utils import ConfigMapper
-from database_tools.preprocessing.functions import bandpass, get_similarity, get_snr, flat_lines, beat_similarity
+from database_tools.preprocessing.functions import bandpass, get_similarity, get_snr, flat_lines, beat_similarity, find_peaks, detect_notches
 
 logging.basicConfig(level=logging.INFO)
 
@@ -33,9 +33,19 @@ class Window:
     def _beat_check(self) -> bool:
         self.beat_sim = beat_similarity(
             self.sig,
+            troughs=self.troughs,
             fs=self.cm.fs,
         )
         return self.beat_sim > self.cm.beat_sim
+
+    @property
+    def _notch_check(self) -> bool:
+        notches = detect_notches(
+            self.sig,
+            peaks=self.peaks,
+            troughs=self.troughs,
+        )
+        return len(notches) > self.cm.min_notches
 
     @property
     def _bp_check(self) -> bool:
@@ -43,6 +53,13 @@ class Window:
         dbp_check = (self.dbp > self.cm.dbp_bounds[0]) & (self.dbp < self.cm.dbp_bounds[1])
         sbp_check = (self.sbp > self.cm.sbp_bounds[0]) & (self.sbp < self.cm.sbp_bounds[1])
         return dbp_check & sbp_check
+
+    @property
+    def get_peaks(self, pad_width=40) -> None:
+        x_pad = np.pad(self.sig, pad_width=pad_width, constant_values=np.mean(self.sig))
+        peaks, troughs = find_peaks(x_pad).values()
+        self.peaks = list(np.array(peaks) - pad_width - 1)
+        self.troughs = list(np.array(troughs) - pad_width - 1)
 
     @property
     def valid(self) -> bool:
