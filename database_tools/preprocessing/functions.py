@@ -230,11 +230,10 @@ def beat_similarity(x, troughs, fs, return_beats=False):
     except ZeroDivisionError:
         return -2
 
-def detect_notches(sig, peaks, troughs, dx=10):
+def detect_notches(sig: np.ndarray, peaks: np.ndarray, troughs: np.ndarray, dx: int = 10) -> list:
     """Detect dichrotic notch by find the maximum velocity
        at least 10 samples after peak and 30 samples before
        the subsequent trough.
-    
 
     Args:
         sig (np.ndarray): Cardiac signal.
@@ -245,27 +244,36 @@ def detect_notches(sig, peaks, troughs, dx=10):
     Returns:
         notches (list): List of dichrotic notch indices.
     """
-    peaks, troughs = repair_peaks_troughs_idx(peaks, troughs)
-
     # always start with first peak
-    if peaks[0] > troughs[0]:
-        troughs = troughs[1::]
+    try:
+        if peaks[0] > troughs[0]:
+            troughs = troughs[1::]
+    except IndexError:
+        return []
 
     notches = []
     for i, j in zip(peaks, troughs):
         try:
             vel = np.gradient(sig[i:j], dx)
+            vel_len = vel.shape[0]
+            n = np.argmax(vel[int(vel_len / 100 * 25):int(vel_len / 100 * 75)])
+            notches.append(n + i)  # add first index of slice to get correct notch index
         except ValueError:  # gradient fails if slice of sig is too small
             continue
-        n = np.argmax(vel[10:-30])
-        notches.append(n + i)  # add first index of slice to get correct notch index
 
     # look for a notch after the last peak if the highest index is a peak.
-    if peaks[-1] > troughs[-1]:
-        vel = np.gradient(sig[peaks[-1]::], dx)
-        n = np.argmax(vel[10:-30])
-        notches.append(n + peaks[-1])
+    try:
+        if peaks[-1] > troughs[-1]:
+            try:
+                vel = np.gradient(sig[peaks[-1]::], dx)
+                vel_len = vel.shape[0]
+                n = np.argmax(vel[int(vel_len / 100 * 25):int(vel_len / 100 * 75)])
+                notches.append(n + peaks[-1])
+            except ValueError:
+                pass
+    except IndexError:
+        pass
 
     # remove notches that are just peaks
     notches = np.array(notches)[~np.isin(notches, peaks)]
-    return list(notches)
+    return notches

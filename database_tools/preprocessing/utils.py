@@ -36,15 +36,18 @@ def build_data_directory(repo_dir: str, partner: str) -> str:
     """
     dt = get_iso_dt()
     data_dir = repo_dir + f'{partner}-data-{dt}/'
-    os.chdir(repo_dir)
-    os.mkdir(data_dir)
-    os.mkdir(data_dir + 'data/')
-    os.mkdir(data_dir + 'data/lines')
-    os.mkdir(data_dir + 'data/records')
-    os.mkdir(data_dir + 'data/records/train')
-    os.mkdir(data_dir + 'data/records/val')
-    os.mkdir(data_dir + 'data/records/test')
-    return data_dir
+    if os.path.exists(data_dir):
+        return data_dir
+    else:
+        os.chdir(repo_dir)
+        os.mkdir(data_dir)
+        os.mkdir(data_dir + 'data/')
+        os.mkdir(data_dir + 'data/lines')
+        os.mkdir(data_dir + 'data/records')
+        os.mkdir(data_dir + 'data/records/train')
+        os.mkdir(data_dir + 'data/records/val')
+        os.mkdir(data_dir + 'data/records/test')
+        return data_dir
 
 def download(path: str) -> int:
     """
@@ -97,7 +100,7 @@ def make_equal_len(x: np.ndarray, y: np.ndarray) -> typing.Tuple[np.ndarray]:
         x = np.pad(x, pad_width=[0, len_y - len_x])
     return (x, y)
 
-def resample_signal(sig: list, fs_old: int, fs_new: int) -> typing.Tuple[list, int]:
+def resample_signal(sig: np.ndarray, fs_old: int, fs_new: int) -> typing.Tuple[list, int]:
     """Resample a signal to a new sampling rate. This is done with the context
        of a reference length of time in order to produce a result that is
        evenly divisible by the window length (at the new sampling rate).
@@ -110,12 +113,12 @@ def resample_signal(sig: list, fs_old: int, fs_new: int) -> typing.Tuple[list, i
     Returns:
         resamp (list): Resampled signal.
     """
-    frame_len = len(sig)
+    frame_len = sig.reshape(-1).shape[0]
     frame_time = frame_len / fs_old
     resamp = signal.resample(sig, int(round(frame_time * fs_new, -1)))
     return resamp
 
-def repair_peaks_troughs_idx(peaks: list, troughs: list) -> typing.Tuple[list, list]:
+def repair_peaks_troughs_idx(peaks: np.ndarray, troughs: np.ndarray) -> typing.Tuple[list, list]:
     """Takes a list of peaks and troughs and removes
        out of order elements. Regardless of which occurs first,
        a peak or a trough, a peak must be followed by a trough
@@ -132,12 +135,15 @@ def repair_peaks_troughs_idx(peaks: list, troughs: list) -> typing.Tuple[list, l
         Items are always returned with peaks idx as first tuple item.
     """
     # Configure algorithm to start with lowest index.
-    if peaks[0] < troughs[0]:
-        first = peaks
-        second = troughs
-    else:
-        second = peaks
-        first = troughs
+    try:
+        if peaks[0] < troughs[0]:
+            first = peaks
+            second = troughs
+        else:
+            second = peaks
+            first = troughs
+    except IndexError:
+        return (np.array([]), np.array([]))
 
     first_repaired, second_repaired = [], []  # lists to store outputs
     i_first, i_second = 0, 0  # declare starting indices
@@ -161,7 +167,10 @@ def repair_peaks_troughs_idx(peaks: list, troughs: list) -> typing.Tuple[list, l
             second_repaired.append(poi_2)
 
     # place indices in the correct order
-    if peaks[0] < troughs[0]:
-        return (first_repaired, second_repaired)
-    else:
-        return (second_repaired, first_repaired)
+    try:
+        if peaks[0] < troughs[0]:
+            return (np.array(first_repaired), np.array(second_repaired))
+        else:
+            return (np.array(second_repaired), np.array(first_repaired))
+    except IndexError:
+        return (np.array([]), np.array([]))
