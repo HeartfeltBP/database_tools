@@ -57,10 +57,12 @@ class BuildDatabase():
 
                 # Evaluate ppg
                 p_win = Window(p, cm, cm.checks)
+                p_win.get_peaks()
                 p_valid = p_win.valid
 
                 # Evaluate abp
                 a_win = Window(a, cm, cm.checks + ['bp'])
+                a_win.get_peaks()
                 a_valid = a_win.valid
 
                 # Evaluate ppg vs abp

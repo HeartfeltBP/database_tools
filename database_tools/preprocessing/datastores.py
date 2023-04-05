@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 from typing import List, Tuple
 from dataclasses import dataclass
-from database_tools.preprocessing.utils import ConfigMapper
-from database_tools.preprocessing.functions import bandpass, get_similarity, get_snr, flat_lines, beat_similarity
+from database_tools.preprocessing.utils import ConfigMapper, repair_peaks_troughs_idx
+from database_tools.preprocessing.functions import bandpass, get_similarity, get_snr, flat_lines, beat_similarity, find_peaks, detect_notches
 
 logging.basicConfig(level=logging.INFO)
 
@@ -27,17 +27,25 @@ class Window:
 
     @property
     def _flat_check(self) -> bool:
-        return not flat_lines(self.sig, m=self.cm.flat_line_length)
+        return not flat_lines(self.sig, n=self.cm.flat_line_length)
 
     @property
     def _beat_check(self) -> bool:
         self.beat_sim = beat_similarity(
             self.sig,
-            windowsize=self.cm.windowsize,
-            ma_perc=self.cm.ma_perc,
+            troughs=self.troughs,
             fs=self.cm.fs,
         )
         return self.beat_sim > self.cm.beat_sim
+
+    @property
+    def _notch_check(self) -> bool:
+        notches = detect_notches(
+            self.sig,
+            peaks=self.peaks,
+            troughs=self.troughs,
+        )
+        return len(notches) > self.cm.min_notches
 
     @property
     def _bp_check(self) -> bool:
@@ -51,6 +59,12 @@ class Window:
         v = [object.__getattribute__(self, '_' + c + '_check') for c in self.checks]
         return np.array(v).all()
 
+    def get_peaks(self, pad_width=40) -> None:
+        x_pad = np.pad(self.sig, pad_width=pad_width, constant_values=np.mean(self.sig))
+        peaks, troughs = find_peaks(x_pad).values()
+        peaks, troughs = repair_peaks_troughs_idx(peaks, troughs)
+        self.peaks = peaks - pad_width - 1
+        self.troughs = troughs - pad_width - 1
 
 class MetricLogger:
 
@@ -69,6 +83,8 @@ class MetricLogger:
         abp_beat_sim=[],
         flat_ppg=[],
         flat_abp=[],
+        ppg_notches=[],
+        abp_notches=[],
     )
     valid_samples: int = 0
     rejected_samples: int = 0
@@ -100,6 +116,8 @@ class MetricLogger:
         self.stats['abp_beat_sim'].append(abp.beat_sim)
         self.stats['flat_ppg'].append(ppg._flat_check)
         self.stats['flat_abp'].append(abp._flat_check)
+        self.stats['ppg_notches'].append(ppg._notch_check)
+        self.stats['abp_notches'].append(abp._notch_check)
 
     def save_stats(self, path):
         df = pd.DataFrame(self.stats)

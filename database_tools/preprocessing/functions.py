@@ -1,43 +1,53 @@
 import itertools
 import numpy as np
 from scipy import signal, integrate
-from heartpy.peakdetection import detect_peaks
-from heartpy.datautils import rolling_mean
-from database_tools.preprocessing.utils import make_equal_len
+from database_tools.preprocessing.utils import make_equal_len, repair_peaks_troughs_idx
+from neurokit2.ppg.ppg_findpeaks import _ppg_findpeaks_bishop
 
-def bandpass(x, low, high, fs):
+def bandpass(x, low, high, fs, method='cheby2'):
     """
-    Filters signal with a 4th order Cheby II filter.
+    Apply one of the following bandpass filters.
+      - 4th order Cheby II filter.
+      - 4th order butterworth filter.
 
     Args:
         x (np.ndarray): Signal data.
         low (float, optional): Lower frequency in Hz.
         high (float, optional): Upper frequency in Hz.
         fs (int, optional): Sampling rate.
+        method (str, optional): One of ['cheby2', 'butter']. Defaults to 'cheby2'.
 
     Returns:
         x (np.ndarray): Filtered signal.
     """
-    # TODO Test results of butterworth vs cheby2
-    # # 4th order butterworth filter
-    # btr = signal.butter(
-    #     4,
-    #     [low, high],
-    #     btype='bandpass',
-    #     output='sos',
-    #     fs=fs
-    # )
-
-    cby = signal.cheby2(
-        N=4,
-        rs=20,
-        Wn=[low, high],
-        btype='bandpass',
-        output='sos',
-        fs=fs,
-    )
-    x = signal.sosfiltfilt(cby, x, padtype=None)
+    if method == 'cheby2':
+        filt = signal.cheby2(
+            N=4,
+            rs=20,
+            Wn=[low, high],
+            btype='bandpass',
+            output='sos',
+            fs=fs,
+        )
+    elif method == 'butter':
+        filt = signal.butter(
+            4,
+            [low, high],
+            btype='bandpass',
+            output='sos',
+            fs=fs
+        )
+    else:
+        raise ValueError('Method must be one of [\'cheby2\', \'butter\']')
+    x = signal.sosfiltfilt(filt, x, padtype=None)
     return x
+
+def find_peaks(sig, show=False, **kwargs):
+    """Modified version of neuroki2 ppg_findpeaks method. Returns peaks and troughs
+       instead of just peaks. See neurokit2 documentation for original function.
+    """
+    peaks, troughs = _ppg_findpeaks_bishop(sig, show=show, **kwargs)
+    return dict(peaks=peaks[0], troughs=troughs[0])
 
 def align_signals(ppg, abp, win_len, fs):
     """
@@ -174,7 +184,7 @@ def flat_lines(x: np.ndarray, n: int) -> bool:
     """
     return any(sum(1 for _ in g) > (n - 1) for _, g in itertools.groupby(x))
 
-def beat_similarity(x, windowsize, ma_perc, fs):
+def beat_similarity(x, troughs, fs, return_beats=False):
     """Calculates beat similarity by segmenting beats at valleys and
        calculating the Pearson correlation coefficient. The final value
        output is the mean of the correlation coefficients calculated from
@@ -185,35 +195,28 @@ def beat_similarity(x, windowsize, ma_perc, fs):
 
     Args:
         x (np.ndarray): Cardiac signal.
-        windowsize (float): Window size for rolling mean in seconds (windowsize * fs).
-        ma_perc (float): Rolling mean multiplier for peak detection.
+        troughs (list): Trough indices.
         fs (int): Sampling rate of cardiac signal.
 
     Returns:
-        (float): Mean of beat correlation coeffients.
+        s (float): Mean of beat correlation coeffients.
     """
-    pad_width = 19
-    x_pad = np.pad(x, pad_width=[pad_width, 0], constant_values=[x[0]])
-    x_pad = np.pad(x_pad, pad_width=[0, pad_width], constant_values=[x[-1]])
-
-    rol_mean = rolling_mean(x_pad, windowsize=windowsize, sample_rate=fs)
-    peaks = detect_peaks(x_pad, rol_mean, ma_perc=ma_perc, sample_rate=fs)['peaklist']
-    peaks = np.array(peaks) - pad_width - 1
-
-    # check no peaks are valleys
-    if (len(peaks) < 2):
+    # check there are at least 2 peaks
+    if (len(troughs) < 2):
         return -1
 
     neg_len = lambda x : len(x) * -1
-    beats = sorted(np.split(x, peaks), key=neg_len)
+    beats = sorted(np.split(x, troughs), key=neg_len)
 
     aligned_beats = [beats[0]]
 
     for i, b in enumerate(beats[1::]):
-        b_new = np.pad(b, pad_width=[len(beats[0]) - len(b), 0])
+        b_new = np.pad(b, pad_width=[0, len(beats[0]) - len(b)])
         aligned_beats.append(b_new)
 
     aligned_beats = [b for b in aligned_beats if len(b[b != 0]) > fs / 2]
+    if return_beats:
+        return aligned_beats
 
     # Get a list of every combination of beats (ie 3 beats -> [[0, 1], [0, 2], [1, 2]])
     idx = [(i, j) for ((i, _), (j, _)) in itertools.combinations(enumerate([i for i in range(len(aligned_beats))]), 2)]
@@ -226,3 +229,54 @@ def beat_similarity(x, windowsize, ma_perc, fs):
         return s / len(aligned_beats)
     except ZeroDivisionError:
         return -2
+
+def detect_notches(sig: np.ndarray, peaks: np.ndarray, troughs: np.ndarray, dx: int = 10, thresh=10) -> list:
+    """Detect dichrotic notch by find the maximum velocity
+       at least 10 samples after peak and 30 samples before
+       the subsequent trough.
+
+    Args:
+        sig (np.ndarray): Cardiac signal.
+        peaks (list): List of signal peak indices.
+        troughs (list): List of signal trough indices.
+        dx (int, optional): Spacing between sig values (for np.gradient). Defaults to 10.
+
+    Returns:
+        notches (list): List of dichrotic notch indices.
+    """
+    # always start with first peak
+    try:
+        if peaks[0] > troughs[0]:
+            troughs = troughs[1::]
+    except IndexError:
+        return []
+
+    notches = []
+    for i, j in zip(peaks, troughs):
+        try:
+            vel = np.gradient(sig[i:j], dx)
+            vel_len = vel.shape[0]
+            n = np.argmax(vel[int(vel_len / 100 * 25):int(vel_len / 100 * 75)])
+            notches.append(n + i)  # add first index of slice to get correct notch index
+        except ValueError:  # gradient fails if slice of sig is too small
+            continue
+
+    # look for a notch after the last peak if the highest index is a peak.
+    try:
+        if peaks[-1] > troughs[-1]:
+            try:
+                vel = np.gradient(sig[peaks[-1]::], dx)
+                vel_len = vel.shape[0]
+                n = np.argmax(vel[int(vel_len / 100 * 25):int(vel_len / 100 * 75)])
+                notches.append(n + peaks[-1])
+            except ValueError:
+                pass
+    except IndexError:
+        pass
+
+    # remove notches that are closer than thresh distance in samples
+    a, b = np.meshgrid(notches, peaks)
+    peak_notch_distances = np.abs(b - a)
+    valid_notch_idx = np.array(np.where(peak_notch_distances >= thresh))[1, :]  # get index in notch array
+    notches = np.array(notches)[valid_notch_idx]
+    return notches
