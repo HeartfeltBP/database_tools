@@ -1,6 +1,6 @@
 import vitaldb
 import pandas as pd
-from database_tools.preprocessing.utils import build_data_directory
+from database_tools.filtering.utils import build_data_directory
 
 repo_dir = '/home/cam/Documents/database_tools/'
 data_dir = build_data_directory(repo_dir + 'data/', 'vital')

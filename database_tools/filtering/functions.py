@@ -1,7 +1,9 @@
 import itertools
 import numpy as np
 from scipy import signal, integrate
-from database_tools.preprocessing.utils import make_equal_len, repair_peaks_troughs_idx
+from typing import Tuple
+from database_tools.datastores.signals import Window
+from database_tools.filtering.utils import make_equal_len, ConfigMapper
 from neurokit2.ppg.ppg_findpeaks import _ppg_findpeaks_bishop
 
 def bandpass(x, low, high, fs, method='cheby2'):
@@ -280,3 +282,23 @@ def detect_notches(sig: np.ndarray, peaks: np.ndarray, troughs: np.ndarray, dx: 
     valid_notch_idx = np.array(np.where(peak_notch_distances >= thresh))[1, :]  # get index in notch array
     notches = np.array(notches)[valid_notch_idx]
     return notches
+
+def congruency_check(ppg: Window, abp: Window, cm: ConfigMapper) -> Tuple[float, float, bool]:
+    """Performs checks between ppg and abp windows.
+
+    Args:
+        ppg (Window): Object with ppg data.
+        abp (Window): Object with abp data.
+        cm (ConfigMapper): Config mapping dataclass.
+
+    Returns:
+        bool: True if valid, False if not.
+    """
+    time_sim = get_similarity(ppg.sig, abp.sig)
+    ppg_f = np.abs(np.fft.fft(ppg.sig))
+    abp_f = np.abs(np.fft.fft(bandpass(abp.sig, low=cm.freq_band[0], high=cm.freq_band[1], fs=cm.fs)))
+    spec_sim = get_similarity(ppg_f, abp_f)
+    sim_check = (time_sim > cm.sim) & (spec_sim > cm.sim)
+    hr_delta_check = np.abs(ppg.f0 - abp.f0) < cm.hr_delta
+    congruency_check = sim_check & hr_delta_check
+    return (time_sim, spec_sim, congruency_check)

@@ -6,9 +6,9 @@ import pandas as pd
 import vitaldb
 from tqdm.notebook import tqdm
 from wfdb import rdrecord
-from database_tools.preprocessing.utils import ConfigMapper, download, window
-from database_tools.preprocessing.functions import bandpass, align_signals
-from database_tools.preprocessing.datastores import Window, MetricLogger, congruency_check
+from database_tools.filtering.utils import ConfigMapper, download, window
+from database_tools.filtering.functions import bandpass, align_signals, congruency_check
+from database_tools.datastores import signals
 
 
 class BuildDatabase():
@@ -25,7 +25,7 @@ class BuildDatabase():
         self._max_samples = max_samples
 
     def run(self, cm: ConfigMapper):
-        logger = MetricLogger()
+        logger = signals.MetricLogger()
 
         print('Gettings valid segments...')
         patient_ids, files = self._get_valid_segs(self._data_dir + 'valid_segs.csv')
@@ -56,12 +56,12 @@ class BuildDatabase():
                 p, a = align_signals(p, a, win_len=cm.win_len, fs=cm.fs)
 
                 # Evaluate ppg
-                p_win = Window(p, cm, cm.checks)
+                p_win = signals.Window(p, cm, cm.checks)
                 p_win.get_peaks()
                 p_valid = p_win.valid
 
                 # Evaluate abp
-                a_win = Window(a, cm, cm.checks + ['bp'])
+                a_win = signals.Window(a, cm, cm.checks + ['bp'])
                 a_win.get_peaks()
                 a_valid = a_win.valid
 

@@ -1,6 +1,9 @@
 import numpy as np
+from typing import List
 import plotly.graph_objects as go
 from dataclasses import dataclass, InitVar, field
+from database_tools.filtering.utils import ConfigMapper, repair_peaks_troughs_idx
+from database_tools.filtering.functions import get_snr, flat_lines, beat_similarity, find_peaks, detect_notches
 
 SIG_MAP = {
     'PLETH': 'ppg',
@@ -50,6 +53,7 @@ class SignalStore:
         else:
             return fig
 
+
 @dataclass
 class SignalGroup:
     """Object to store a group of SignalStore objects.
@@ -77,3 +81,61 @@ class SignalGroup:
             out += f'{sig: <7}: '
             out += f'Format {store.fmt}, Length of {store.data.shape[0]} samples\n'
         print(out)
+
+
+@dataclass
+class Window:
+
+    sig: np.ndarray
+    cm: ConfigMapper
+    checks: List[str]
+
+    @property
+    def _snr_check(self) -> bool:
+        self.snr, self.f0 = get_snr(self.sig, low=self.cm.freq_band[0], high=self.cm.freq_band[1], df=0.2, fs=self.cm.fs)
+        return self.snr > self.cm.snr
+
+    @property
+    def _hr_check(self) -> bool:
+        return (self.f0 > self.cm.hr_freq_band[0]) & (self.f0 < self.cm.hr_freq_band[1])
+
+    @property
+    def _flat_check(self) -> bool:
+        return not flat_lines(self.sig, n=self.cm.flat_line_length)
+
+    @property
+    def _beat_check(self) -> bool:
+        self.beat_sim = beat_similarity(
+            self.sig,
+            troughs=self.troughs,
+            fs=self.cm.fs,
+        )
+        return self.beat_sim > self.cm.beat_sim
+
+    @property
+    def _notch_check(self) -> bool:
+        notches = detect_notches(
+            self.sig,
+            peaks=self.peaks,
+            troughs=self.troughs,
+        )
+        return len(notches) > self.cm.min_notches
+
+    @property
+    def _bp_check(self) -> bool:
+        self.dbp, self.sbp = np.min(self.sig), np.max(self.sig)
+        dbp_check = (self.dbp > self.cm.dbp_bounds[0]) & (self.dbp < self.cm.dbp_bounds[1])
+        sbp_check = (self.sbp > self.cm.sbp_bounds[0]) & (self.sbp < self.cm.sbp_bounds[1])
+        return dbp_check & sbp_check
+
+    @property
+    def valid(self) -> bool:
+        v = [object.__getattribute__(self, '_' + c + '_check') for c in self.checks]
+        return np.array(v).all()
+
+    def get_peaks(self, pad_width=40) -> None:
+        x_pad = np.pad(self.sig, pad_width=pad_width, constant_values=np.mean(self.sig))
+        peaks, troughs = find_peaks(x_pad).values()
+        peaks, troughs = repair_peaks_troughs_idx(peaks, troughs)
+        self.peaks = peaks - pad_width - 1
+        self.troughs = troughs - pad_width - 1
