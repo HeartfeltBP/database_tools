@@ -99,19 +99,18 @@ class BuildDatabase():
         return (patient_ids, files)
 
     def _get_data(self, path, partner, cm):
+        from database_tools.io.wfdb import get_data_record, get_signal
         if partner == 'mimic3':
-            r1 = download(path + '.hea')
-            r2 = download(path + '.dat')
-            if (r1 != 0) | (r2 != 0):
-                return False
-            else:
-                rec = rdrecord(path[8:])  # path w/o https://
-                signals = rec.sig_name
-                ppg = rec.p_signal[:, signals.index('PLETH')].astype(np.float64)
-                abp = rec.p_signal[:, signals.index('ABP')].astype(np.float64)
+            path = '/'.join(path.split('/')[6::])
+            rec = get_data_record(path=path, record_type='waveforms')
+            if rec is not None:
+                ppg = get_signal(rec, sig='PLETH')
+                abp = get_signal(rec, sig='ABP')
                 ppg[np.isnan(ppg)] = 0
                 abp[np.isnan(abp)] = 0
-            return (ppg, abp)
+                return (ppg, abp)
+            else:
+                return False
         elif partner == 'vital':
             data = vitaldb.load_case(path, ['ART', 'PLETH'], 1 / cm.fs)
             abp, ppg = data[:, 0], data[:, 1]
