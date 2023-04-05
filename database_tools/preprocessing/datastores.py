@@ -83,6 +83,8 @@ class MetricLogger:
         abp_beat_sim=[],
         flat_ppg=[],
         flat_abp=[],
+        ppg_notches=[],
+        abp_notches=[],
     )
     valid_samples: int = 0
     rejected_samples: int = 0
@@ -114,6 +116,8 @@ class MetricLogger:
         self.stats['abp_beat_sim'].append(abp.beat_sim)
         self.stats['flat_ppg'].append(ppg._flat_check)
         self.stats['flat_abp'].append(abp._flat_check)
+        self.stats['ppg_notches'].append(ppg._notch_check)
+        self.stats['abp_notches'].append(abp._notch_check)
 
     def save_stats(self, path):
         df = pd.DataFrame(self.stats)
