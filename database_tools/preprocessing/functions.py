@@ -276,6 +276,7 @@ def detect_notches(sig: np.ndarray, peaks: np.ndarray, troughs: np.ndarray, dx: 
 
     # remove notches that are closer than thresh distance in samples
     a, b = np.meshgrid(notches, peaks)
-    peak_notch_distances = b - a
-    notches = notches[np.array(np.where(np.abs(peak_notch_distances) >= thresh))[1, :]]
+    peak_notch_distances = np.abs(b - a)
+    valid_notch_idx = np.array(np.where(peak_notch_distances >= thresh))[1, :]  # get index in notch array
+    notches = np.array(notches)[valid_notch_idx]
     return notches
