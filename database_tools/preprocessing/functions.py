@@ -230,7 +230,7 @@ def beat_similarity(x, troughs, fs, return_beats=False):
     except ZeroDivisionError:
         return -2
 
-def detect_notches(sig: np.ndarray, peaks: np.ndarray, troughs: np.ndarray, dx: int = 10) -> list:
+def detect_notches(sig: np.ndarray, peaks: np.ndarray, troughs: np.ndarray, dx: int = 10, thresh=10) -> list:
     """Detect dichrotic notch by find the maximum velocity
        at least 10 samples after peak and 30 samples before
        the subsequent trough.
@@ -274,6 +274,8 @@ def detect_notches(sig: np.ndarray, peaks: np.ndarray, troughs: np.ndarray, dx: 
     except IndexError:
         pass
 
-    # remove notches that are just peaks
-    notches = np.array(notches)[~np.isin(notches, peaks)]
+    # remove notches that are closer than thresh distance in samples
+    a, b = np.meshgrid(notches, peaks)
+    peak_notch_distances = b - a
+    notches = notches[np.array(np.where(np.abs(peak_notch_distances) >= thresh))[1, :]]
     return notches
