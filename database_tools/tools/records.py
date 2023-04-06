@@ -26,7 +26,7 @@ class Dataset:
     _nframes: int = field(init=False)
 
     def __post_init__(self, data_dir: str) -> None:
-        frames = [pd.read_json(file, lines=True) for file in glob.glob(f'{data_dir}lines/*.jsonlines')]
+        frames = [pd.read_json(file, lines=True) for file in glob.glob(f'{data_dir}data/lines/*.jsonlines')]
         object.__setattr__(self, '_nframes', len(frames))
         data = pd.concat(frames, ignore_index=True)
         object.__setattr__(self, 'ppg', np.array(data['ppg'].to_list()))
@@ -46,7 +46,7 @@ class Dataset:
 def generate_records(
     ds: Dataset,
     data_dir: str,
-    split_strategy: Tuple[float, float, float] = None,
+    split_strategy: Tuple[float, float, float] = (0.7, 0.15, 0.15),
     samples_per_file: int = 10000,
     scaler_path: str = None,
 ) -> Tuple[dict, dict]:
@@ -74,16 +74,10 @@ def generate_records(
     print('Scaling data...')
     if scaler_path is not None:
         with open(scaler_path, 'rb') as f:
-            scaler = pkl.load(f)
+            scaler, scaler_split_idx = pkl.load(f)
     else:
         scaler = None
     data_scaled, scaler_dict = scale_data(data_unscaled, scaler)
-
-    if scaler_path is None:
-        with open(f'{data_dir}min_max_scaler_{time_ns()}.pkl', 'wb') as f:
-            pkl.dump(scaler_dict, f)
-    with open(f'{data_dir}split_idx_{time_ns()}.pkl', 'wb') as f:
-        pkl.dump(idx, f)
 
     print('Generating TFRecords...')
     write_records(
@@ -91,6 +85,9 @@ def generate_records(
         data_dir=data_dir,
         samples_per_file=samples_per_file,
     )
+    if scaler_path is None:
+        with open(f'{data_dir}records_info_{time_ns()}.pkl', 'wb') as f:
+            pkl.dump([scaler_dict, idx], f)
     return (data_unscaled, data_scaled, scaler_dict)
 
 def get_split_idx(n: int, split_strategy: Tuple[float, float, float]) -> dict:
@@ -138,7 +135,7 @@ def scale_data(data_unscaled: dict, scaler: dict) -> Tuple[dict, dict]:
     return (data_scaled, scaler_dict)
 
 def write_records(data: dict, data_dir: str, samples_per_file: int) -> None:
-    records_dir = data_dir + 'records/'
+    records_dir = data_dir + 'data/records/'
     for split in ['train', 'val', 'test']:
         print(f'Starting {split} split...')
         split_data = {f'{sig}': data[sig][split] for sig in data.keys()}

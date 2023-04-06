@@ -24,7 +24,7 @@ def get_iso_dt() -> None:
     """
     return datetime.today().isoformat().split('T')[0].replace('-', '')
 
-def build_data_directory(repo_dir: str, partner: str) -> str:
+def build_data_directory(repo_dir: str, partner: str, date=None) -> str:
     """Create empty directory for new dataset.
 
     Args:
@@ -34,8 +34,9 @@ def build_data_directory(repo_dir: str, partner: str) -> str:
     Returns:
         data_dir (str): Path to data directory.
     """
-    dt = get_iso_dt()
-    data_dir = repo_dir + f'{partner}-data-{dt}/'
+    if date is None:
+        date = get_iso_dt()
+    data_dir = repo_dir + f'{partner}-data-{date}/'
     if os.path.exists(data_dir):
         return data_dir
     else:
