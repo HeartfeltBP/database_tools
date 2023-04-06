@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "heartfelt-tools"
-version = "1.0.6"
+version = "0.6.0"
 description = "Extract and process photoplethysmography and arterial blood pressure data from mimic3-waveforms and vitaldb."
 authors = ["Cameron Johnson"]
 license = "MIT"
