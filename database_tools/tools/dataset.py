@@ -23,13 +23,14 @@ from database_tools.processing.modify import align_signals, bandpass
 from database_tools.processing.utils import repair_peaks_troughs_idx, window
 
 log_dir = '/'.join(os.getcwd().split('/')[0:5]) + '/logs/'
-logging.basicConfig(
-     filename=f'{log_dir}tools.log',
-     format= '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
-     datefmt='%H:%M:%S'
-)
-logger = logging.getLogger('tools')
-logger.setLevel(logging.INFO)
+if 'database_tools' in log_dir:
+    logging.basicConfig(
+        filename=f'{log_dir}tools.log',
+        format= '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+        datefmt='%H:%M:%S'
+    )
+    logger = logging.getLogger('tools')
+    logger.setLevel(logging.INFO)
 
 
 @dataclass(frozen=True)
