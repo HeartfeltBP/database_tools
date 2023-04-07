@@ -62,11 +62,11 @@ class MetricLogger:
 
     def __post_init__(self, cm: list):
         self.metrics_dict = {}
-        for m in cm.metrics:
+        for m in cm.data.metrics:
             self.metrics_dict.update({m: []})
-        self.samples_per_file = cm.samples_per_file
-        self.samples_per_patient = cm.samples_per_patient
-        self.max_samples = cm.max_samples
+        self.samples_per_file = cm.data.samples_per_file
+        self.samples_per_patient = cm.data.samples_per_patient
+        self.max_samples = cm.data.max_samples
 
     def update_metrics(self, metrics: dict) -> None:
         """Update dataset metrics dictionary and return next action.
@@ -145,25 +145,25 @@ class Window:
 
     @property
     def _snr_check(self) -> bool:
-        self.snr, self.f0 = get_snr(self.sig, low=self.cm.freq_band[0], high=self.cm.freq_band[1], df=0.2, fs=self.cm.fs)
-        return self.snr > self.cm.snr
+        self.snr, self.f0 = get_snr(self.sig, low=self.cm.data.freq_band[0], high=self.cm.data.freq_band[1], df=0.2, fs=self.cm.data.fs)
+        return self.snr > self.cm.data.snr
 
     @property
     def _hr_check(self) -> bool:
-        return (self.f0 > self.cm.hr_freq_band[0]) & (self.f0 < self.cm.hr_freq_band[1])
+        return (self.f0 > self.cm.data.hr_freq_band[0]) & (self.f0 < self.cm.data.hr_freq_band[1])
 
     @property
     def _flat_check(self) -> bool:
-        return not detect_flat_lines(self.sig, n=self.cm.flat_line_length)
+        return not detect_flat_lines(self.sig, n=self.cm.data.flat_line_length)
 
     @property
     def _beat_check(self) -> bool:
         self.beat_sim = get_beat_similarity(
             self.sig,
             troughs=self.troughs,
-            fs=self.cm.fs,
+            fs=self.cm.data.fs,
         )
-        return self.beat_sim > self.cm.beat_sim
+        return self.beat_sim > self.cm.data.beat_sim
 
     @property
     def _notch_check(self) -> bool:
@@ -172,13 +172,13 @@ class Window:
             peaks=self.peaks,
             troughs=self.troughs,
         )
-        return len(notches) > self.cm.min_notches
+        return len(notches) > self.cm.data.min_notches
 
     @property
     def _bp_check(self) -> bool:
         self.dbp, self.sbp = np.min(self.sig), np.max(self.sig)
-        dbp_check = (self.dbp > self.cm.dbp_bounds[0]) & (self.dbp < self.cm.dbp_bounds[1])
-        sbp_check = (self.sbp > self.cm.sbp_bounds[0]) & (self.sbp < self.cm.sbp_bounds[1])
+        dbp_check = (self.dbp > self.cm.data.dbp_bounds[0]) & (self.dbp < self.cm.data.dbp_bounds[1])
+        sbp_check = (self.sbp > self.cm.data.sbp_bounds[0]) & (self.sbp < self.cm.data.sbp_bounds[1])
         return dbp_check & sbp_check
 
     @property
@@ -207,10 +207,10 @@ def congruency_check(ppg: Window, abp: Window, cm: ConfigMapper) -> Tuple[float,
     """
     time_sim = get_similarity(ppg.sig, abp.sig)
     ppg_f = np.abs(np.fft.fft(ppg.sig))
-    abp_f = np.abs(np.fft.fft(bandpass(abp.sig, low=cm.freq_band[0], high=cm.freq_band[1], fs=cm.fs)))
+    abp_f = np.abs(np.fft.fft(bandpass(abp.sig, low=cm.data.freq_band[0], high=cm.data.freq_band[1], fs=cm.data.fs)))
     spec_sim = get_similarity(ppg_f, abp_f)
-    sim_check = (time_sim > cm.sim) & (spec_sim > cm.sim)
-    hr_delta_check = np.abs(ppg.f0 - abp.f0) < cm.hr_delta
+    sim_check = (time_sim > cm.data.sim) & (spec_sim > cm.data.sim)
+    hr_delta_check = np.abs(ppg.f0 - abp.f0) < cm.data.hr_delta
     congruency_check = sim_check & hr_delta_check
     return {
         'time_sim': time_sim,
@@ -243,10 +243,10 @@ class DatasetFactory():
                 continue
 
             # Apply bandpass filter to ppg
-            ppg = bandpass(ppg, low=cm.freq_band[0], high=cm.freq_band[1], fs=cm.fs)
+            ppg = bandpass(ppg, low=cm.data.freq_band[0], high=cm.data.freq_band[1], fs=cm.data.fs)
 
-            overlap = int(cm.fs / 2)
-            l = cm.win_len + overlap
+            overlap = int(cm.data.fs / 2)
+            l = cm.data.win_len + overlap
             idx = window(ppg, l, overlap)
 
             title_len = 50
@@ -256,15 +256,15 @@ class DatasetFactory():
                     p = ppg[i:j]
                     a = abp[i:j]
 
-                    p, a = align_signals(p, a, win_len=cm.win_len, fs=cm.fs)
+                    p, a = align_signals(p, a, win_len=cm.data.win_len, fs=cm.data.fs)
 
                     # Evaluate ppg
-                    p_win = Window(p, cm, cm.checks)
+                    p_win = Window(p, cm, cm.data.checks)
                     p_win.get_peaks()
                     p_valid = p_win.valid
 
                     # Evaluate abp
-                    a_win = Window(a, cm, cm.checks + ['bp'])
+                    a_win = Window(a, cm, cm.data.checks + ['bp'])
                     a_win.get_peaks()
                     a_valid = a_win.valid
 
@@ -280,7 +280,7 @@ class DatasetFactory():
 
                         # Write to file when count is reached. 
                         if status in [1, 2]:
-                            file_name = str(int(metrics_logger.valid_samples / cm.samples_per_file) - 1).zfill(3)
+                            file_name = str(int(metrics_logger.valid_samples / cm.data.samples_per_file) - 1).zfill(3)
                             file_path = self._data_dir + f'data/lines/{self._partner}_{file_name}.jsonlines'
                             write_to_json(json_data, file_path); json_data = ''
                             if status == 2:
@@ -288,7 +288,7 @@ class DatasetFactory():
                                 print('Done!')
                                 return
                     bar()
-                    if metrics_logger.patient_samples == cm.samples_per_patient:
+                    if metrics_logger.patient_samples == cm.data.samples_per_patient:
                         break
         return
 
