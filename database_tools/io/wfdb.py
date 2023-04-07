@@ -71,11 +71,15 @@ def header_has_signals(hea: wfdb.Record, signals: List[str]) -> bool:
     Returns:
         bool: True if the record contains ALL signals provided.
     """
-    if set(signals).difference(set(hea.sig_name)) == set():
-        logger.info(f'Record {hea.record_name}.hea contains {signals}')
-        return True
-    else:
-        logger.info(f'Record {hea.record_name}.hea does not contain {signals}')
+    try:
+        if set(signals).difference(set(hea.sig_name)) == set():
+            logger.info(f'Record {hea.record_name}.hea contains {signals}')
+            return True
+        else:
+            logger.info(f'Record {hea.record_name}.hea does not contain {signals}')
+            return False
+    except TypeError:
+        logger.info(f'Error getting {signals} from {hea.record_name}.hea')
         return False
 
 def get_data_record(path: str, record_type: str = 'waveforms') -> wfdb.Record:
@@ -134,13 +138,13 @@ def locate_valid_records(signals: List[str], min_length: int, n_segments: int, s
     Args:
         signals (List[str]): One or more of ['PLETH', 'ABP', ...]  TODO: add other signals
         min_length (int): Minimum length of data records to be considered valid.
-        n_records (int): Maximum number of records to find.
+        n_segments (int): Maximum number of records to find.
         shuffle (bool): If True records list is shuffled.
 
     Returns:
-        valid_segs (List[str]): _description_
+        valid_records (List[str]): List of valid segments.
     """
-    valid_segs = []
+    valid_records = []
     with alive_bar(total=n_segments, bar='brackets', force_tty=True) as bar:
         for path in generate_record_paths(name='adults', shuffle=shuffle):
 
@@ -168,7 +172,8 @@ def locate_valid_records(signals: List[str], min_length: int, n_segments: int, s
 
                     # Check if segment has provided signals and append
                     if header_has_signals(hea, signals):
-                        valid_segs.append(seg_path)
-                        if len(valid_segs) > n_segments:
-                            return valid_segs
+                        valid_records.append(seg_path)
+                        if n_segments is not None:
+                            if len(valid_records) > n_segments:
+                                return valid_records
                         bar()  # iterate loading bar

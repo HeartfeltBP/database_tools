@@ -22,7 +22,7 @@ class WaveformRecord:
     def __post_init__(self, rcd: wfdb.Record):
         setattr(self, 'name', rcd.record_name)
         setattr(self, 'fs', rcd.fs)
-        signals = {sig: SignalStore(rcd.p_signal[:, i], rcd.fmt[i]) for i, sig in enumerate(rcd.sig_name)}
+        signals = {sig: SignalStore(rcd.p_signal[:, i], rcd.fmt[i]) for i, sig in enumerate(rcd.sig_name) if sig in ['PLETH', 'ABP']}
         group = SignalGroup(signals)
         setattr(self, 'sigs', group)
 
