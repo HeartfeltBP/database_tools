@@ -2,8 +2,6 @@ import ast
 import configparser
 import glob
 import json
-import logging
-import os
 import random
 from dataclasses import InitVar, dataclass, field
 from typing import List, Tuple
@@ -21,17 +19,6 @@ from database_tools.processing.metrics import (get_beat_similarity,
                                                get_similarity, get_snr)
 from database_tools.processing.modify import align_signals, bandpass
 from database_tools.processing.utils import repair_peaks_troughs_idx, window
-
-log_dir = '/'.join(os.getcwd().split('/')[0:5]) + '/logs/'
-if 'database_tools' in log_dir:
-    logging.basicConfig(
-        filename=f'{log_dir}tools.log',
-        format= '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
-        datefmt='%H:%M:%S'
-    )
-    logger = logging.getLogger('tools')
-    logger.setLevel(logging.INFO)
-
 
 @dataclass(frozen=True)
 class ConfigItem:
@@ -145,8 +132,8 @@ class Dataset:
 
     @property
     def info(self):
-        logger.info(f'Data was extracted from {self._nframes} JSONLINES files.')
-        logger.info(f'The total number of windows is {self.ppg.shape[0]}.')
+        print(f'Data was extracted from {self._nframes} JSONLINES files.')
+        print(f'The total number of windows is {self.ppg.shape[0]}.')
 
 
 @dataclass
