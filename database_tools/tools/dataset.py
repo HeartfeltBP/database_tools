@@ -33,16 +33,33 @@ logger.setLevel(logging.INFO)
 
 
 @dataclass(frozen=True)
+class ConfigItem:
+    def set_attr(self, config_item):
+        for key, value in config_item.items():
+            try:
+                object.__setattr__(self, key, ast.literal_eval(value))
+            except:
+                object.__setattr__(self, key, value)
+
+
+@dataclass(frozen=True)
 class ConfigMapper:
 
     config_path: InitVar[str]
+    data = ConfigItem()
+    train = ConfigItem()
+    model = ConfigItem()
+    sweep = ConfigItem()
+    deploy = ConfigItem()
 
     def __post_init__(self, config_path: str):
         config = configparser.ConfigParser()
         config.read(config_path)
-        pipeline = config['PIPELINE']
-        for key, value in pipeline.items():
-            object.__setattr__(self, key, ast.literal_eval(value))
+        self.data.set_attr(config['DATASET_PIPELINE'])
+        self.train.set_attr(config['TRAINING_PIPELINE'])
+        self.model.set_attr(config['MODEL'])
+        self.sweep.set_attr(config['SWEEP'])
+        self.deploy.set_attr(config['DEPLOYMENT'])
 
 
 @dataclass
@@ -222,7 +239,7 @@ class DatasetFactory():
         self._data_dir = data_dir
         self._partner = 'mimic3'
     def run(self):
-        cm = ConfigMapper(self._data_dir + '/config.ini')
+        cm = ConfigMapper(self._data_dir + '/config.ini').data
         metrics_logger = MetricLogger(cm)
 
         print('Gettings valid segments...')
