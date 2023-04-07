@@ -19,9 +19,8 @@ from database_tools.processing.detect import (detect_flat_lines,
                                               detect_notches, detect_peaks)
 from database_tools.processing.metrics import (get_beat_similarity,
                                                get_similarity, get_snr)
-from database_tools.processing.modify import align_signals
-from database_tools.processing.utils import (bandpass,
-                                             repair_peaks_troughs_idx, window)
+from database_tools.processing.modify import align_signals, bandpass
+from database_tools.processing.utils import repair_peaks_troughs_idx, window
 
 log_dir = '/'.join(os.getcwd().split('/')[0:5]) + '/logs/'
 logging.basicConfig(
