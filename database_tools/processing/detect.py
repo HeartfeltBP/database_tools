@@ -22,7 +22,7 @@ def detect_peaks(sig, show=False, **kwargs):
     peaks, troughs = _ppg_findpeaks_bishop(sig, show=show, **kwargs)
     return dict(peaks=peaks[0], troughs=troughs[0])
 
-def detect_notches(sig: np.ndarray, peaks: np.ndarray, troughs: np.ndarray, dx: int = 10, thresh=10) -> list:
+def detect_notches(sig: np.ndarray, peaks: np.ndarray, troughs: np.ndarray, dx: int = 10, thresh: int = 10) -> list:
     """Detect dichrotic notch by find the maximum velocity
        at least 10 samples after peak and 30 samples before
        the subsequent trough.
@@ -32,6 +32,7 @@ def detect_notches(sig: np.ndarray, peaks: np.ndarray, troughs: np.ndarray, dx: 
         peaks (list): List of signal peak indices.
         troughs (list): List of signal trough indices.
         dx (int, optional): Spacing between sig values (for np.gradient). Defaults to 10.
+        thresh (int, optional): Minimum distance between peak and subsequent notch.
 
     Returns:
         notches (list): List of dichrotic notch indices.
@@ -69,6 +70,6 @@ def detect_notches(sig: np.ndarray, peaks: np.ndarray, troughs: np.ndarray, dx: 
     # remove notches that are closer than thresh distance in samples
     a, b = np.meshgrid(notches, peaks)
     peak_notch_distances = np.abs(b - a)
-    valid_notch_idx = np.array(np.where(peak_notch_distances >= thresh))[1, :]  # get index in notch array
+    valid_notch_idx = [i for i, x in enumerate(peak_notch_distances) if x[i] >= thresh]
     notches = np.array(notches)[valid_notch_idx]
     return notches
