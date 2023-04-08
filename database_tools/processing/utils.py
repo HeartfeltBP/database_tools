@@ -141,6 +141,10 @@ def repair_peaks_troughs_idx(peaks: np.ndarray, troughs: np.ndarray) -> typing.T
         except IndexError: # catch index error (always thrown in last iteration)
             first_repaired.append(poi_1)
 
+    # remove duplicates
+    first_repaired = list(set(first_repaired))
+    second_repaired = list(set(second_repaired))
+
     # place indices in the correct order
     try:
         if peaks[0] < troughs[0]:
