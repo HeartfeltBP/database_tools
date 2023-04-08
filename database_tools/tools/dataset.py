@@ -227,7 +227,7 @@ class DatasetFactory():
         self._data_dir = data_dir
         self._partner = 'mimic3'
     def run(self):
-        cm = ConfigMapper(self._data_dir + '/config.ini').data
+        cm = ConfigMapper(self._data_dir + '/config.ini')
         metrics_logger = MetricLogger(cm)
 
         print('Gettings valid segments...')
