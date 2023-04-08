@@ -190,8 +190,10 @@ class Window:
         x_pad = np.pad(self.sig, pad_width=pad_width, constant_values=np.mean(self.sig))
         peaks, troughs = detect_peaks(x_pad).values()
         peaks, troughs = repair_peaks_troughs_idx(peaks, troughs)
-        self.peaks = peaks - pad_width - 1
-        self.troughs = troughs - pad_width - 1
+        peaks = peaks - pad_width - 1
+        self.peaks = [p for p in peaks if p > -1]
+        troughs = troughs - pad_width - 1
+        self.troughs = [t for t in troughs if t > -1]
 
 
 def congruency_check(ppg: Window, abp: Window, cm: ConfigMapper) -> Tuple[float, float, bool]:

@@ -49,7 +49,7 @@ def detect_notches(sig: np.ndarray, peaks: np.ndarray, troughs: np.ndarray, dx: 
         try:
             vel = np.gradient(sig[i:j], dx)
             vel_len = vel.shape[0]
-            n = np.argmax(vel[int(vel_len / 100 * 25):int(vel_len / 100 * 75)])
+            n = np.argmax(vel[int(vel_len / 100 * 10):int(vel_len / 100 * 90)])
             notches.append(n + i)  # add first index of slice to get correct notch index
         except ValueError:  # gradient fails if slice of sig is too small
             continue
