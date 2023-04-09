@@ -9,13 +9,12 @@ import pandas as pd
 from typing import Union, List
 from alive_progress import alive_bar
 
-log_dir = '/'.join(os.getcwd().split('/')[0:5]) + '/logs/'
 logging.basicConfig(
-     filename=f'{log_dir}io.log',
+     filename=f'{__name__}.log',
      format= '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
      datefmt='%H:%M:%S'
 )
-logger = logging.getLogger('io')
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 MIMIC_DIR = 'mimic3wdb/1.0/'
