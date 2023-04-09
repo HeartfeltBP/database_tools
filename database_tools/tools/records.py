@@ -1,52 +1,17 @@
 import glob
 import numpy as np
-import pandas as pd
 import pickle as pkl
 from tqdm import tqdm
-from time import time_ns
 import tensorflow as tf
-from sklearn.model_selection import train_test_split
-
-import logging
+from time import time_ns
 from typing import Tuple, List
-from dataclasses import dataclass, InitVar, field
-
-logging.basicConfig(level=logging.INFO)
-
-
-@dataclass
-class Dataset:
-
-    data_dir: InitVar[str]
-    ppg: np.ndarray = field(init=False)
-    vpg: np.ndarray = field(init=False)
-    apg: np.ndarray = field(init=False)
-    abp: np.ndarray = field(init=False)
-
-    _nframes: int = field(init=False)
-
-    def __post_init__(self, data_dir: str) -> None:
-        frames = [pd.read_json(file, lines=True) for file in glob.glob(f'{data_dir}lines/*.jsonlines')]
-        object.__setattr__(self, '_nframes', len(frames))
-        data = pd.concat(frames, ignore_index=True)
-        object.__setattr__(self, 'ppg', np.array(data['ppg'].to_list()))
-        vpg = np.gradient(self.ppg, axis=1)  # 1st derivative of ppg
-        apg = np.gradient(vpg, axis=1) # 2nd derivative of vpg
-        object.__setattr__(self, 'vpg', vpg)
-        object.__setattr__(self, 'apg', apg)
-        object.__setattr__(self, 'abp', np.array(data['abp'].to_list()))
-        self.info
-
-    @property
-    def info(self):
-        logging.info(f'Data was extracted from {self._nframes} JSONLINES files.')
-        logging.info(f'The total number of windows is {self.ppg.shape[0]}.')
-
+from sklearn.model_selection import train_test_split
+from database_tools.tools.dataset import Dataset
 
 def generate_records(
     ds: Dataset,
     data_dir: str,
-    split_strategy: Tuple[float, float, float] = None,
+    split_strategy: Tuple[float, float, float] = (0.7, 0.15, 0.15),
     samples_per_file: int = 10000,
     scaler_path: str = None,
 ) -> Tuple[dict, dict]:
@@ -74,16 +39,10 @@ def generate_records(
     print('Scaling data...')
     if scaler_path is not None:
         with open(scaler_path, 'rb') as f:
-            scaler = pkl.load(f)
+            scaler, scaler_split_idx = pkl.load(f)
     else:
         scaler = None
     data_scaled, scaler_dict = scale_data(data_unscaled, scaler)
-
-    if scaler_path is None:
-        with open(f'{data_dir}min_max_scaler_{time_ns()}.pkl', 'wb') as f:
-            pkl.dump(scaler_dict, f)
-    with open(f'{data_dir}split_idx_{time_ns()}.pkl', 'wb') as f:
-        pkl.dump(idx, f)
 
     print('Generating TFRecords...')
     write_records(
@@ -91,6 +50,9 @@ def generate_records(
         data_dir=data_dir,
         samples_per_file=samples_per_file,
     )
+    if scaler_path is None:
+        with open(f'{data_dir}records_info_{time_ns()}.pkl', 'wb') as f:
+            pkl.dump([scaler_dict, idx], f)
     return (data_unscaled, data_scaled, scaler_dict)
 
 def get_split_idx(n: int, split_strategy: Tuple[float, float, float]) -> dict:
@@ -122,7 +84,7 @@ def split_data(ds: Dataset, idx) -> dict:
 def scale_data(data_unscaled: dict, scaler: dict) -> Tuple[dict, dict]:
     data_scaled = {'ppg': {}, 'vpg': {}, 'apg': {}, 'abp': {}}
     scaler_dict = {}
-    for key in ['ppg', 'vpg', 'apg', 'abp']:
+    for key in ['ppg', 'vpg', 'apg']:
         if scaler is None:
             min_ = np.min(data_unscaled[key]['train'])
             max_ = np.max(data_unscaled[key]['train'])
@@ -135,10 +97,13 @@ def scale_data(data_unscaled: dict, scaler: dict) -> Tuple[dict, dict]:
             tmp = data_unscaled[key][split]
             tmp_scaled = np.divide(tmp - min_, max_ - min_)
             data_scaled[key][split] = tmp_scaled
+    data_scaled['abp']['train'] = data_unscaled['abp']['train']
+    data_scaled['abp']['val'] = data_unscaled['abp']['val']
+    data_scaled['abp']['test'] = data_unscaled['abp']['test']
     return (data_scaled, scaler_dict)
 
 def write_records(data: dict, data_dir: str, samples_per_file: int) -> None:
-    records_dir = data_dir + 'records/'
+    records_dir = data_dir + 'data/records/'
     for split in ['train', 'val', 'test']:
         print(f'Starting {split} split...')
         split_data = {f'{sig}': data[sig][split] for sig in data.keys()}

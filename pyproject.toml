@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "heartfelt-tools"
-version = "1.0.4"
+version = "1.0.0"
 description = "Extract and process photoplethysmography and arterial blood pressure data from mimic3-waveforms and vitaldb."
 authors = ["Cameron Johnson"]
 license = "MIT"
@@ -22,6 +22,8 @@ heartpy = "^1.2.7"
 wfdb = "^4.0.0"
 tensorflow = "==2.9.2"
 vitaldb = "^1.2.10"
+pytest = "^7.2.1"
+alive-progress = "^3.0.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
@@ -32,3 +34,8 @@ widgetsnbextension = "==3.6.1"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:wfdb.*",
+]
