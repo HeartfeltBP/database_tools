@@ -9,13 +9,17 @@ import pandas as pd
 from typing import Union, List
 from alive_progress import alive_bar
 
-logging.basicConfig(
-     filename=f'{__name__}.log',
-     format= '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
-     datefmt='%H:%M:%S'
-)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+try:
+    logging.basicConfig(
+        filename=f'{__name__}.log',
+        format= '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+        datefmt='%H:%M:%S'
+    )
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    LOG = True
+except OSError:
+    LOG = False
 
 MIMIC_DIR = 'mimic3wdb/1.0/'
 
@@ -30,7 +34,7 @@ def generate_record_paths(name: str = None, shuffle: bool = True) -> str:
     records = list(pd.read_csv(io.BytesIO(r.content), names=['records'])['records'])
     if shuffle:
         random.shuffle(records)
-    logger.info(f'Successfuly got records file from {rec_dir}')
+    if LOG: logger.info(f'Successfuly got records file from {rec_dir}')
     for path in records:
         yield path[:-1]  # remove trailing /
 
@@ -55,10 +59,10 @@ def get_header_record(path: str, record_type: str) -> Union[wfdb.Record, wfdb.Mu
 
     try:
         hea = wfdb.rdheader(pn_dir=pn_dir, record_name=hea_name)
-        logger.info(f'Successfully got {record_type} record {hea_name}')
+        if LOG: logger.info(f'Successfully got {record_type} record {hea_name}')
         return hea
     except Exception as e:
-        logger.info(f'Failed to get {record_type} record {path} due to {e}')
+        if LOG: logger.info(f'Failed to get {record_type} record {path} due to {e}')
 
 def header_has_signals(hea: wfdb.Record, signals: List[str]) -> bool:
     """Check if a header record contains specified signals.
@@ -72,13 +76,13 @@ def header_has_signals(hea: wfdb.Record, signals: List[str]) -> bool:
     """
     try:
         if set(signals).difference(set(hea.sig_name)) == set():
-            logger.info(f'Record {hea.record_name}.hea contains {signals}')
+            if LOG: logger.info(f'Record {hea.record_name}.hea contains {signals}')
             return True
         else:
-            logger.info(f'Record {hea.record_name}.hea does not contain {signals}')
+            if LOG: logger.info(f'Record {hea.record_name}.hea does not contain {signals}')
             return False
     except TypeError:
-        logger.info(f'Error getting {signals} from {hea.record_name}.hea')
+        if LOG: logger.info(f'Error getting {signals} from {hea.record_name}.hea')
         return False
 
 def get_data_record(path: str, record_type: str = 'waveforms') -> wfdb.Record:
@@ -101,10 +105,10 @@ def get_data_record(path: str, record_type: str = 'waveforms') -> wfdb.Record:
         raise ValueError('record_type must be one of [\'waveforms\', \'numerics\']')
     try:
         rcd = wfdb.rdrecord(pn_dir=pn_dir, record_name=rcd_name)
-        logger.info(f'Successfully got {record_type} record {rcd_name}')
+        if LOG: logger.info(f'Successfully got {record_type} record {rcd_name}')
         return rcd
     except Exception as e:
-        logger.info(f'Failed to get {record_type} record {path} due to {e}')
+        if LOG: logger.info(f'Failed to get {record_type} record {path} due to {e}')
 
 def get_signal(rec: wfdb.Record, sig: str, errors: str = 'ignore') -> np.ndarray:
     """Extract signal data from a record.
@@ -120,11 +124,11 @@ def get_signal(rec: wfdb.Record, sig: str, errors: str = 'ignore') -> np.ndarray
     try:
         s = rec.sig_name  # list of signals in record
         data = rec.p_signal[:, s.index(sig)].astype(np.float64)
-        logger.info(f'Successfully extracted {sig} from {rec.record_name}')
+        if LOG: logger.info(f'Successfully extracted {sig} from {rec.record_name}')
         return data
     except Exception as e:
         if errors == 'ignore':
-            logger.info(f'Failed to extract {sig} from {rec.record_name} due to {e}')
+            if LOG: logger.info(f'Failed to extract {sig} from {rec.record_name} due to {e}')
         elif errors == 'raise':
             raise ValueError(f'Signal name {sig} is not in the provided record')
         else:
